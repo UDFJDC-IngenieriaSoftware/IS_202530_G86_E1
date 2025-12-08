@@ -12,6 +12,9 @@ Sistema web para centralizar, consultar y gestionar la información de los grupo
 - **Panel de administración** para gestión de usuarios y roles
 - **Dashboard dinámico** que se actualiza automáticamente según el rol del usuario
 - **Sistema de roles avanzado** con promoción automática de docentes a coordinadores
+- **Gestión de proyectos curriculares** y áreas de investigación
+- **Validación de proyecto curricular** para coordinadores y grupos
+- **Filtros avanzados** en gestión de usuarios
 
 ## 🛠️ Tecnologías
 
@@ -168,6 +171,11 @@ InvestigaciónUD/
 - Puede ver todos los proyectos (solo lectura)
 - **No puede** crear, editar o eliminar proyectos
 - Puede ver todas las solicitudes (solo lectura)
+- Puede gestionar proyectos curriculares (crear, editar, eliminar)
+- Puede gestionar áreas de investigación dentro de proyectos curriculares
+- Puede ver usuarios por proyecto curricular
+- Puede gestionar tipos de productos de investigación
+- Validación: Solo puede asignar coordinadores del mismo proyecto curricular que el grupo
 
 ## 🔄 Sistema de Promoción de Roles
 
@@ -233,10 +241,36 @@ InvestigaciónUD/
 - `PUT /api/users/:id` - Actualizar usuario (ADMINISTRADOR)
 - `DELETE /api/users/:id` - Eliminar usuario (ADMINISTRADOR)
 - `GET /api/users/available-teachers` - Docentes disponibles para coordinar (ADMINISTRADOR)
+  - Query params: `excludeTeamId`, `projectAreaId` (filtra por proyecto curricular)
 - `GET /api/users/teams-without-coordinator` - Grupos sin coordinador (ADMINISTRADOR)
+
+#### Proyectos Curriculares (Admin)
+- `GET /api/project-areas` - Listar proyectos curriculares (ADMINISTRADOR)
+- `GET /api/project-areas/:id` - Obtener proyecto curricular (ADMINISTRADOR)
+- `POST /api/project-areas` - Crear proyecto curricular (ADMINISTRADOR)
+- `PUT /api/project-areas/:id` - Actualizar proyecto curricular (ADMINISTRADOR)
+- `DELETE /api/project-areas/:id` - Eliminar proyecto curricular (ADMINISTRADOR, solo si no tiene información relacionada)
+- `GET /api/project-areas/:id/users` - Obtener usuarios por proyecto curricular (ADMINISTRADOR)
+
+#### Áreas de Investigación (Admin)
+- `GET /api/investigation-areas` - Listar áreas de investigación (público)
+- `GET /api/investigation-areas/project-area/:projectAreaId` - Áreas por proyecto curricular (público)
+- `GET /api/investigation-areas/:id` - Obtener área de investigación (público)
+- `POST /api/investigation-areas` - Crear área de investigación (ADMINISTRADOR)
+- `PUT /api/investigation-areas/:id` - Actualizar área de investigación (ADMINISTRADOR)
+- `DELETE /api/investigation-areas/:id` - Eliminar área de investigación (ADMINISTRADOR, solo si no tiene equipos)
+
+#### Tipos de Producto (Admin)
+- `GET /api/product-types` - Listar tipos de producto (público)
+- `GET /api/product-types/:id` - Obtener tipo de producto (ADMINISTRADOR)
+- `POST /api/product-types` - Crear tipo de producto (ADMINISTRADOR)
+- `PUT /api/product-types/:id` - Actualizar tipo de producto (ADMINISTRADOR)
+- `DELETE /api/product-types/:id` - Eliminar tipo de producto (ADMINISTRADOR, solo si no está en uso)
 
 #### Públicos
 - `GET /api/public/project-areas` - Áreas de proyecto (público)
+- `GET /api/public/investigation-areas` - Áreas de investigación (público)
+- `GET /api/public/product-types` - Tipos de producto (público)
 
 ## 🚦 Estado del Proyecto
 
@@ -249,16 +283,26 @@ InvestigaciónUD/
 - Sistema de promoción automática de roles
 - Validación de permisos por rol
 - Actualización automática de roles según asignación de grupos
+- CRUD de proyectos curriculares con validación de dependencias
+- CRUD de áreas de investigación con validación de dependencias
+- CRUD de tipos de producto con validación de dependencias
+- Validación de proyecto curricular para coordinadores y grupos
+- Endpoints para obtener usuarios por proyecto curricular
 
 ### ✅ Frontend completo con:
 - Autenticación y registro
 - Directorio de grupos
 - Dashboard dinámico por roles
 - Gestión de solicitudes
-- Panel de administración
+- Panel de administración completo
 - Gestión de proyectos con enlaces a documentos
 - Actualización automática del dashboard cuando cambia el rol
 - Visualización de proyectos con enlaces públicos
+- Gestión de proyectos curriculares con áreas de investigación
+- Visualización de usuarios por proyecto curricular
+- Gestión de tipos de producto
+- Panel de usuarios con filtros avanzados
+- Visualización de proyecto curricular en grupos públicos
 
 ## 📝 Características Implementadas
 
@@ -289,6 +333,36 @@ InvestigaciónUD/
 - ✅ Coordinadores pueden gestionar sus propios grupos
 - ✅ Validación de que grupos siempre tengan un coordinador
 - ✅ Visualización de coordinador en vista de administrador
+- ✅ Validación: Coordinador y grupo deben pertenecer al mismo proyecto curricular
+- ✅ Información del proyecto curricular visible públicamente en grupos
+- ✅ Filtrado de docentes disponibles por proyecto curricular al asignar coordinador
+
+### Proyectos Curriculares
+- ✅ Administradores pueden crear, editar y eliminar proyectos curriculares
+- ✅ Validación: No se pueden eliminar proyectos curriculares con información relacionada
+- ✅ Visualización de usuarios (estudiantes y docentes) por proyecto curricular
+- ✅ Gestión de áreas de investigación dentro de cada proyecto curricular
+- ✅ Botón de eliminar se oculta automáticamente si hay información relacionada
+
+### Áreas de Investigación
+- ✅ Administradores pueden crear, editar y eliminar áreas de investigación
+- ✅ Áreas de investigación están asociadas a un proyecto curricular
+- ✅ Validación: No se pueden eliminar áreas de investigación con equipos asignados
+- ✅ Gestión integrada desde el panel de proyectos curriculares
+
+### Tipos de Producto
+- ✅ Administradores pueden crear, editar y eliminar tipos de producto
+- ✅ Validación: No se pueden eliminar tipos de producto que están en uso
+- ✅ Gestión desde el dashboard de administrador
+
+### Gestión de Usuarios
+- ✅ Panel de administración con tabla completa de usuarios
+- ✅ Visualización de proyecto curricular en la tabla de usuarios
+- ✅ Filtros de búsqueda por nombre/email
+- ✅ Filtros por rol (Estudiante, Docente, Coordinador, Administrador)
+- ✅ Filtros por proyecto curricular
+- ✅ Botón para limpiar filtros
+- ✅ Chips de colores para identificar roles visualmente
 
 ## 🔄 Actualización Automática del Dashboard
 
@@ -316,15 +390,23 @@ Esto asegura que:
 
 El esquema de la base de datos incluye:
 - `app_user`: Usuarios del sistema
-- `Teacher`: Docentes
-- `Student`: Estudiantes
+- `Teacher`: Docentes (tiene `project_id` que referencia `Project_area`)
+- `Student`: Estudiantes (tiene `project_id` que referencia `Project_area`)
 - `Cordinator`: Coordinadores (relación con Teacher)
-- `Investigation_team`: Grupos de investigación
+- `Investigation_team`: Grupos de investigación (tiene `area_id` que referencia `Investigation_area`)
 - `Investigation_project`: Proyectos de investigación
-- `Product`: Productos asociados a proyectos (incluye campo `document`)
+- `Product`: Productos asociados a proyectos (incluye campo `document` para enlaces)
+- `Product_type`: Tipos de productos de investigación
 - `Application`: Solicitudes de vinculación
-- `Project_area`: Áreas de proyecto
-- `Investigation_area`: Áreas de investigación
+- `Project_area`: Proyectos curriculares
+- `Investigation_area`: Áreas de investigación (tiene `project_area_id` que referencia `Project_area`)
+
+### Relaciones Importantes
+- Un **grupo de investigación** pertenece a un **área de investigación**
+- Un **área de investigación** pertenece a un **proyecto curricular**
+- Un **docente** pertenece a un **proyecto curricular**
+- Un **estudiante** pertenece a un **proyecto curricular**
+- **Validación**: Un coordinador solo puede coordinar grupos del mismo proyecto curricular al que pertenece
 
 ## 🤝 Contribución
 
