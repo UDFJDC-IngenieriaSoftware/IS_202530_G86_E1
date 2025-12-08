@@ -5,6 +5,7 @@ Sistema web para centralizar, consultar y gestionar la información de los grupo
 ## 🚀 Características
 
 - **Registro y autenticación** con validación de dominio @udistrital.edu.co
+- **Navegación pública** - Páginas de inicio y grupos accesibles sin autenticación
 - **Directorio unificado** de grupos de investigación clasificados por área
 - **Visualización de proyectos** activos y producción científica con enlaces a documentos
 - **Solicitudes de vinculación** con seguimiento de estado
@@ -15,6 +16,7 @@ Sistema web para centralizar, consultar y gestionar la información de los grupo
 - **Gestión de proyectos curriculares** y áreas de investigación
 - **Validación de proyecto curricular** para coordinadores y grupos
 - **Filtros avanzados** en gestión de usuarios
+- **CI/CD con GitHub Actions** para evaluación automática de calidad de código
 
 ## 🛠️ Tecnologías
 
@@ -126,6 +128,10 @@ InvestigaciónUD/
 │   │   └── index.html
 │   ├── package.json
 │   └── angular.json
+├── .github/
+│   └── workflows/
+│       ├── code-quality.yml # Workflow de CI/CD para calidad de código
+│       └── README.md        # Documentación de workflows
 └── DB.sql                   # Script de base de datos
 ```
 
@@ -199,6 +205,8 @@ InvestigaciónUD/
 - Interceptor HTTP para agregar token a todas las peticiones
 - Guards para proteger rutas según roles de usuario
 - Actualización automática del usuario para detectar cambios de rol
+- **Navegación pública**: Las páginas de inicio (`/home`) y grupos (`/teams`) son accesibles sin autenticación
+- Redirección inteligente: Solo se redirige al login cuando se intenta acceder a rutas protegidas
 
 ## 📡 API REST
 
@@ -385,6 +393,39 @@ Esto asegura que:
 - Los guards protegen las rutas según roles de usuario
 - El sistema valida automáticamente los roles en cada petición
 - Los cambios de rol se reflejan inmediatamente en el dashboard
+- El interceptor HTTP detecta rutas públicas y no redirige al login innecesariamente
+- Las páginas públicas (`/home`, `/teams`) pueden ser accedidas sin autenticación
+
+## 🔄 CI/CD con GitHub Actions
+
+El proyecto incluye un workflow de GitHub Actions para evaluación automática de calidad de código:
+
+### Características del Workflow
+
+- **Ejecución automática** en cada push y pull request a las ramas principales
+- **Evaluación del Backend (Node.js)**:
+  - Verificación de sintaxis de archivos JavaScript
+  - Validación de `package.json`
+  - Auditoría de seguridad con `npm audit`
+  - Verificación de que el servidor puede iniciarse
+
+- **Evaluación del Frontend (Angular)**:
+  - Linting de TypeScript con Angular CLI
+  - Verificación de tipos de TypeScript
+  - Compilación de TypeScript
+  - Validación de `angular.json`
+  - Detección de `console.log` en código de producción
+
+- **Parámetros configurables**:
+  - Modo estricto (falla en warnings)
+  - Opción de saltar verificación de backend o frontend
+  - Variables de entorno para controlar verificaciones específicas
+
+- **Reportes automáticos**:
+  - Genera un reporte de calidad al finalizar
+  - Muestra el estado de cada verificación
+
+Para más detalles, consulta `.github/workflows/README.md`
 
 ## 🗄️ Base de Datos
 
