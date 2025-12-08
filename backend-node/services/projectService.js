@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const teamService = require('./teamService');
 
 const getAllProjects = async () => {
   const result = await pool.query(`
@@ -56,8 +57,14 @@ const getProjectsByTeam = async (teamId) => {
   return result.rows;
 };
 
-const createProject = async (projectData) => {
+const createProject = async (projectData, userId) => {
   const { title, resume, state, teamId } = projectData;
+
+  // Validar que el equipo pertenece al coordinador
+  const isOwner = await teamService.isTeamOwnedByCoordinator(teamId, userId);
+  if (!isOwner) {
+    throw new Error('No tienes permiso para crear proyectos en este equipo');
+  }
 
   const result = await pool.query(
     `INSERT INTO Investigation_project (team_id, title, resume, state)
@@ -69,8 +76,23 @@ const createProject = async (projectData) => {
   return await getProjectById(result.rows[0].investigation_project_id);
 };
 
-const updateProject = async (projectId, projectData) => {
+const updateProject = async (projectId, projectData, userId) => {
   const { title, resume, state, teamId } = projectData;
+
+  // Validar que el proyecto existe y pertenece al coordinador
+  const existingProject = await getProjectById(projectId);
+  const isOwner = await teamService.isTeamOwnedByCoordinator(existingProject.teamId, userId);
+  if (!isOwner) {
+    throw new Error('No tienes permiso para editar este proyecto');
+  }
+
+  // Si se cambia el equipo, validar que el nuevo equipo también pertenece al coordinador
+  if (teamId !== existingProject.teamId) {
+    const isNewTeamOwner = await teamService.isTeamOwnedByCoordinator(teamId, userId);
+    if (!isNewTeamOwner) {
+      throw new Error('No tienes permiso para mover el proyecto a este equipo');
+    }
+  }
 
   const result = await pool.query(
     `UPDATE Investigation_project 
@@ -87,7 +109,14 @@ const updateProject = async (projectId, projectData) => {
   return await getProjectById(projectId);
 };
 
-const deleteProject = async (projectId) => {
+const deleteProject = async (projectId, userId) => {
+  // Validar que el proyecto existe y pertenece al coordinador
+  const existingProject = await getProjectById(projectId);
+  const isOwner = await teamService.isTeamOwnedByCoordinator(existingProject.teamId, userId);
+  if (!isOwner) {
+    throw new Error('No tienes permiso para eliminar este proyecto');
+  }
+
   const result = await pool.query(
     'DELETE FROM Investigation_project WHERE investigation_project_id = $1 RETURNING investigation_project_id',
     [projectId]

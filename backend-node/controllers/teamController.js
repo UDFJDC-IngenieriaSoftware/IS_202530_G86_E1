@@ -32,6 +32,20 @@ const getTeamsByArea = async (req, res) => {
   }
 };
 
+const getMyTeams = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    console.log('getMyTeams - userId:', userId);
+    console.log('getMyTeams - req.user:', req.user);
+    const teams = await teamService.getTeamsByCoordinator(userId);
+    console.log('getMyTeams - teams found:', teams.length);
+    res.json(teams);
+  } catch (error) {
+    console.error('Error getting my teams:', error);
+    res.status(500).json({ message: 'Error al obtener mis equipos' });
+  }
+};
+
 const createTeam = async (req, res) => {
   try {
     const team = await teamService.createTeam(req.body);
@@ -68,6 +82,7 @@ module.exports = {
   getAllTeams,
   getTeamById,
   getTeamsByArea,
+  getMyTeams,
   createTeam,
   updateTeam,
   deleteTeam,

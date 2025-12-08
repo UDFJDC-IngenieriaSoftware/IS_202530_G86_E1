@@ -235,25 +235,22 @@ export class MyTeamsComponent implements OnInit {
   }
 
   loadTeams(): void {
+    console.log('MyTeamsComponent - Loading teams...');
     this.apiService.getMyTeams().subscribe({
       next: (teams: any[]) => {
-        this.teams = teams;
+        console.log('MyTeamsComponent - Teams received:', teams);
+        console.log('MyTeamsComponent - Teams count:', teams.length);
+        this.teams = teams || [];
         // Cargar solicitudes para cada equipo
         teams.forEach((team: any) => {
           this.loadApplicationsForTeam(team.investigationTeamId);
         });
       },
       error: (error: any) => {
-        console.error('Error loading teams:', error);
-        // Si falla, intentar con el endpoint público (para desarrollo)
-        this.apiService.getTeams().subscribe({
-          next: (teams: any[]) => {
-            this.teams = teams;
-            teams.forEach((team: any) => {
-              this.loadApplicationsForTeam(team.investigationTeamId);
-            });
-          }
-        });
+        console.error('MyTeamsComponent - Error loading teams:', error);
+        console.error('MyTeamsComponent - Error status:', error.status);
+        console.error('MyTeamsComponent - Error message:', error.message);
+        this.teams = [];
       }
     });
   }

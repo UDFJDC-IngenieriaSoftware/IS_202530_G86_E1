@@ -4,12 +4,23 @@ import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
+import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { ApiService } from '../../../core/services/api.service';
+import { ProjectDialogComponent } from '../../../shared/components/project-dialog/project-dialog.component';
 
 @Component({
   selector: 'app-projects',
   standalone: true,
-  imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule, MatTableModule],
+  imports: [
+    CommonModule, 
+    MatCardModule, 
+    MatButtonModule, 
+    MatIconModule, 
+    MatTableModule,
+    MatDialogModule,
+    MatSnackBarModule
+  ],
   template: `
     <div class="projects-container">
       <div class="header">
@@ -86,7 +97,11 @@ export class ProjectsComponent implements OnInit {
   projects: any[] = [];
   displayedColumns: string[] = ['title', 'teamName', 'state', 'actions'];
 
-  constructor(private apiService: ApiService) {}
+  constructor(
+    private apiService: ApiService,
+    private dialog: MatDialog,
+    private snackBar: MatSnackBar
+  ) {}
 
   ngOnInit(): void {
     this.loadProjects();
@@ -94,23 +109,70 @@ export class ProjectsComponent implements OnInit {
 
   loadProjects(): void {
     this.apiService.getProjects().subscribe({
-      next: (projects) => {
+      next: (projects: any[]) => {
         this.projects = projects;
       },
-      error: (error) => console.error('Error loading projects:', error)
+      error: (error: any) => console.error('Error loading projects:', error)
     });
   }
 
   createProject(): void {
-    // TODO: Implementar diálogo de creación
+    const dialogRef = this.dialog.open(ProjectDialogComponent, {
+      width: '600px',
+      data: {}
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.apiService.createProject(result).subscribe({
+          next: () => {
+            this.snackBar.open('Proyecto creado exitosamente', 'Cerrar', { duration: 3000 });
+            this.loadProjects();
+          },
+          error: (error: any) => {
+            console.error('Error creating project:', error);
+            this.snackBar.open('Error al crear proyecto', 'Cerrar', { duration: 3000 });
+          }
+        });
+      }
+    });
   }
 
   editProject(project: any): void {
-    // TODO: Implementar edición
+    const dialogRef = this.dialog.open(ProjectDialogComponent, {
+      width: '600px',
+      data: { project }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.apiService.updateProject(project.investigationProjectId, result).subscribe({
+          next: () => {
+            this.snackBar.open('Proyecto actualizado exitosamente', 'Cerrar', { duration: 3000 });
+            this.loadProjects();
+          },
+          error: (error: any) => {
+            console.error('Error updating project:', error);
+            this.snackBar.open('Error al actualizar proyecto', 'Cerrar', { duration: 3000 });
+          }
+        });
+      }
+    });
   }
 
   deleteProject(project: any): void {
-    // TODO: Implementar eliminación
+    if (confirm(`¿Estás seguro de que deseas eliminar el proyecto "${project.title}"?`)) {
+      this.apiService.deleteProject(project.investigationProjectId).subscribe({
+        next: () => {
+          this.snackBar.open('Proyecto eliminado exitosamente', 'Cerrar', { duration: 3000 });
+          this.loadProjects();
+        },
+        error: (error: any) => {
+          console.error('Error deleting project:', error);
+          this.snackBar.open('Error al eliminar proyecto', 'Cerrar', { duration: 3000 });
+        }
+      });
+    }
   }
 
   getStateLabel(state: number): string {

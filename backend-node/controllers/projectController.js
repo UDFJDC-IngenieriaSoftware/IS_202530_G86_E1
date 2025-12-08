@@ -34,7 +34,8 @@ const getProjectsByTeam = async (req, res) => {
 
 const createProject = async (req, res) => {
   try {
-    const project = await projectService.createProject(req.body);
+    const userId = req.user.userId;
+    const project = await projectService.createProject(req.body, userId);
     res.status(201).json(project);
   } catch (error) {
     console.error('Error creating project:', error);
@@ -45,7 +46,8 @@ const createProject = async (req, res) => {
 const updateProject = async (req, res) => {
   try {
     const projectId = parseInt(req.params.id);
-    const project = await projectService.updateProject(projectId, req.body);
+    const userId = req.user.userId;
+    const project = await projectService.updateProject(projectId, req.body, userId);
     res.json(project);
   } catch (error) {
     console.error('Error updating project:', error);
@@ -56,7 +58,8 @@ const updateProject = async (req, res) => {
 const deleteProject = async (req, res) => {
   try {
     const projectId = parseInt(req.params.id);
-    await projectService.deleteProject(projectId);
+    const userId = req.user.userId;
+    await projectService.deleteProject(projectId, userId);
     res.status(204).send();
   } catch (error) {
     console.error('Error deleting project:', error);
