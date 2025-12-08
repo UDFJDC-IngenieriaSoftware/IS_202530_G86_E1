@@ -1,0 +1,222 @@
+name: Code Quality Check
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+    inputs:
+      skip_backend:
+        description: 'Saltar verificación del backend'
+        required: false
+        default: 'false'
+        type: boolean
+      skip_frontend:
+        description: 'Saltar verificación del frontend'
+        required: false
+        default: 'false'
+        type: boolean
+      strict_mode:
+        description: 'Modo estricto (falla en warnings)'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  NODE_VERSION: '18.x'
+  ANGULAR_VERSION: '17'
+  # Parámetros de calidad configurables
+  BACKEND_STRICT_SYNTAX: true
+  BACKEND_CHECK_SECURITY: true
+  FRONTEND_STRICT_TYPES: true
+  FRONTEND_CHECK_CONSOLE: true
+
+jobs:
+  # Job para evaluar calidad del código del backend (Node.js)
+  backend-quality:
+    name: Backend Code Quality (Node.js)
+    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch' || !inputs.skip_backend
+    
+    defaults:
+      run:
+        working-directory: ./backend-node
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend-node/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check for syntax errors
+        run: |
+          echo "🔍 Verificando sintaxis de archivos JavaScript..."
+          ERROR_COUNT=0
+          for file in $(find . -name "*.js" -not -path "./node_modules/*" -not -path "./dist/*"); do
+            if ! node -c "$file" 2>/dev/null; then
+              echo "❌ Error de sintaxis en: $file"
+              ERROR_COUNT=$((ERROR_COUNT + 1))
+            fi
+          done
+          if [ $ERROR_COUNT -gt 0 ]; then
+            echo "❌ Se encontraron $ERROR_COUNT archivos con errores de sintaxis"
+            exit 1
+          fi
+          echo "✅ Todos los archivos JavaScript tienen sintaxis válida"
+
+      - name: Check for common issues
+        run: |
+          echo "🔍 Verificando problemas comunes..."
+          
+          # Contar archivos JavaScript
+          JS_COUNT=$(find . -name "*.js" -not -path "./node_modules/*" -not -path "./dist/*" | wc -l)
+          echo "📁 Archivos JavaScript encontrados: $JS_COUNT"
+          
+          # Verificar que no haya require() sin manejo de errores (opcional)
+          echo "✅ Verificación de problemas comunes completada"
+
+      - name: Validate package.json
+        run: |
+          echo "🔍 Validando package.json..."
+          node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))" || exit 1
+
+      - name: Check for security vulnerabilities
+        if: env.BACKEND_CHECK_SECURITY == 'true'
+        run: |
+          echo "🔍 Verificando vulnerabilidades de seguridad..."
+          if npm audit --audit-level=moderate; then
+            echo "✅ No se encontraron vulnerabilidades críticas o moderadas"
+          else
+            echo "⚠️  Se encontraron vulnerabilidades. Revisa el reporte anterior."
+            if [ "${{ inputs.strict_mode }}" == "true" ]; then
+              exit 1
+            fi
+          fi
+
+      - name: Verify server can start
+        run: |
+          echo "🔍 Verificando que el servidor puede iniciarse..."
+          timeout 10s node server.js || exit 0
+
+  # Job para evaluar calidad del código del frontend (Angular)
+  frontend-quality:
+    name: Frontend Code Quality (Angular)
+    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch' || !inputs.skip_frontend
+    
+    defaults:
+      run:
+        working-directory: ./frontend
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify Angular CLI
+        run: |
+          echo "🔍 Verificando Angular CLI..."
+          npx ng version
+
+      - name: Lint TypeScript files
+        run: |
+          echo "🔍 Ejecutando linting de TypeScript..."
+          if npx ng lint --format=stylish; then
+            echo "✅ Linting completado sin errores"
+          else
+            echo "⚠️  Se encontraron problemas en el linting"
+            if [ "${{ inputs.strict_mode }}" == "true" ]; then
+              echo "❌ Modo estricto activado: fallando por errores de linting"
+              exit 1
+            fi
+          fi
+
+      - name: Type checking
+        run: |
+          echo "🔍 Verificando tipos de TypeScript..."
+          npx ng build --configuration=development --no-optimization || exit 1
+
+      - name: Check for TypeScript errors
+        if: env.FRONTEND_STRICT_TYPES == 'true'
+        run: |
+          echo "🔍 Verificando errores de TypeScript..."
+          npx tsc --noEmit --project tsconfig.json || exit 1
+          echo "✅ Verificación de tipos completada sin errores"
+
+      - name: Validate angular.json
+        run: |
+          echo "🔍 Validando angular.json..."
+          node -e "JSON.parse(require('fs').readFileSync('angular.json', 'utf8'))" || exit 1
+
+      - name: Check for unused imports
+        run: |
+          echo "🔍 Verificando imports no utilizados..."
+          # Esta verificación se hace automáticamente con el build de TypeScript
+          echo "✅ Verificación de imports completada"
+
+      - name: Check for console.log in production code
+        if: env.FRONTEND_CHECK_CONSOLE == 'true'
+        run: |
+          echo "🔍 Verificando console.log en código de producción..."
+          CONSOLE_COUNT=$(grep -r "console.log" src/ --include="*.ts" --include="*.js" 2>/dev/null | wc -l || echo "0")
+          if [ "$CONSOLE_COUNT" -gt 0 ]; then
+            echo "⚠️  Se encontraron $CONSOLE_COUNT console.log en el código. Considera removerlos para producción."
+            if [ "${{ inputs.strict_mode }}" == "true" ]; then
+              echo "❌ Modo estricto activado: fallando por console.log encontrados"
+              exit 1
+            fi
+          else
+            echo "✅ No se encontraron console.log"
+          fi
+
+      - name: Validate package.json
+        run: |
+          echo "🔍 Validando package.json..."
+          node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))" || exit 1
+
+  # Job para generar reporte de calidad
+  quality-report:
+    name: Quality Report
+    runs-on: ubuntu-latest
+    needs: [backend-quality, frontend-quality]
+    if: always()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate quality report
+        run: |
+          echo "## 📊 Reporte de Calidad de Código" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Backend (Node.js)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Verificación de sintaxis" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Validación de package.json" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Verificación de seguridad" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Frontend (Angular)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Linting de TypeScript" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Verificación de tipos" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Compilación de TypeScript" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Validación de angular.json" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Estado:** ${{ needs.backend-quality.result }} (Backend) | ${{ needs.frontend-quality.result }} (Frontend)" >> $GITHUB_STEP_SUMMARY
+

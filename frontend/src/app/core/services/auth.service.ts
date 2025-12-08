@@ -121,22 +121,29 @@ export class AuthService {
     const token = this.getToken();
     if (userStr && token) {
       const user = JSON.parse(userStr);
+      // Intentar cargar el usuario completo, pero no redirigir si falla
       this.http.get<User>(`${this.apiUrl}/users/me`).subscribe({
         next: (fullUser) => {
           this.currentUserSubject.next(fullUser);
         },
         error: (error) => {
           console.error('Error loading user from storage:', error);
-          // Solo hacer logout si es un error 401 (no autorizado)
-          // No hacer logout en otros errores para evitar redirecciones innecesarias
+          // Si es un error 401, el token es inválido, limpiar sin redirigir
           if (error.status === 401) {
-            this.logout();
+            // Limpiar el estado pero no redirigir (el interceptor manejará la redirección solo si es necesario)
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            this.currentUserSubject.next(null);
           } else {
             // Si hay un error pero no es 401, mantener el usuario del localStorage
             this.currentUserSubject.next(user as User);
           }
         }
       });
+    } else if (userStr && !token) {
+      // Si hay usuario pero no token, limpiar todo
+      localStorage.removeItem('user');
+      this.currentUserSubject.next(null);
     }
   }
 
