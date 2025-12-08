@@ -175,5 +175,26 @@ export class ApiService {
   deleteProductType(id: number): Observable<void> {
     return this.http.delete<void>(`${API_URL}/product-types/${id}`);
   }
+
+  // Project Areas (Admin)
+  getProjectAreasAdmin(): Observable<any[]> {
+    return this.http.get<any[]>(`${API_URL}/project-areas`);
+  }
+
+  getProjectAreaById(id: number): Observable<any> {
+    return this.http.get<any>(`${API_URL}/project-areas/${id}`);
+  }
+
+  createProjectArea(projectArea: any): Observable<any> {
+    return this.http.post<any>(`${API_URL}/project-areas`, projectArea);
+  }
+
+  updateProjectArea(id: number, projectArea: any): Observable<any> {
+    return this.http.put<any>(`${API_URL}/project-areas/${id}`, projectArea);
+  }
+
+  deleteProjectArea(id: number): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/project-areas/${id}`);
+  }
 }
 

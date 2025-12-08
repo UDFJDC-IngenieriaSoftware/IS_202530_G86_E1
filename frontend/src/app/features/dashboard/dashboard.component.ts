@@ -85,6 +85,14 @@ import { ApiService } from '../../core/services/api.service';
                 <p>Gestiona los tipos de proyectos de investigación</p>
               </mat-card-content>
             </mat-card>
+
+            <mat-card class="dashboard-card" routerLink="/dashboard/project-areas">
+              <mat-card-content>
+                <mat-icon>school</mat-icon>
+                <h3>Proyectos Curriculares</h3>
+                <p>Gestiona los proyectos curriculares</p>
+              </mat-card-content>
+            </mat-card>
           }
         }
       </div>

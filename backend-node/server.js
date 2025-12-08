@@ -12,6 +12,7 @@ const teamRoutes = require('./routes/teams');
 const projectRoutes = require('./routes/projects');
 const applicationRoutes = require('./routes/applications');
 const productTypeRoutes = require('./routes/productTypes');
+const projectAreaRoutes = require('./routes/projectAreas');
 
 const app = express();
 const PORT = process.env.PORT || 8081;
@@ -37,6 +38,7 @@ app.use('/api/teams', teamRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/product-types', productTypeRoutes);
+app.use('/api/project-areas', projectAreaRoutes);
 
 // Error handler
 app.use(errorHandler);

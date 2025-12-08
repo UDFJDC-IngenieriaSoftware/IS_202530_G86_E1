@@ -25,6 +25,10 @@ export const dashboardRoutes: Routes = [
   {
     path: 'product-types',
     loadComponent: () => import('./product-types/product-types.component').then(m => m.ProductTypesComponent)
+  },
+  {
+    path: 'project-areas',
+    loadComponent: () => import('./project-areas/project-areas.component').then(m => m.ProjectAreasComponent)
   }
 ];
 
