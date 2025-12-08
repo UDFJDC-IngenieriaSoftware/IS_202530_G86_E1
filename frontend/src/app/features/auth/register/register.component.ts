@@ -589,12 +589,21 @@ export class RegisterComponent implements OnInit {
       ).subscribe({
         next: (response) => {
           this.loading = false;
-          this.snackBar.open('Registro exitoso', 'Cerrar', { duration: 3000 });
-          this.router.navigate(['/dashboard']);
+          if (response.token) {
+            // Esperar un momento para que el usuario se cargue correctamente
+            setTimeout(() => {
+              this.snackBar.open('Registro exitoso', 'Cerrar', { duration: 3000 });
+              this.router.navigate(['/dashboard']);
+            }, 500);
+          } else {
+            this.snackBar.open('Error: No se recibió token de autenticación', 'Cerrar', { duration: 3000 });
+          }
         },
         error: (error) => {
           this.loading = false;
-          this.snackBar.open(error.error?.message || 'Error al registrar', 'Cerrar', { duration: 3000 });
+          console.error('Registration error:', error);
+          const errorMessage = error.error?.message || error.message || 'Error al registrar';
+          this.snackBar.open(errorMessage, 'Cerrar', { duration: 5000 });
         }
       });
     }

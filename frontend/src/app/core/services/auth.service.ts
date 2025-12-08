@@ -68,7 +68,25 @@ export class AuthService {
             name: response.name,
             role: response.role
           }));
-          this.loadUserFromStorage();
+          // Cargar el usuario completo después del registro
+          // Usar un pequeño delay para asegurar que el backend haya procesado el registro
+          setTimeout(() => {
+            this.http.get<User>(`${this.apiUrl}/users/me`).subscribe({
+              next: (fullUser) => {
+                this.currentUserSubject.next(fullUser);
+              },
+              error: (error) => {
+                console.error('Error loading user after registration:', error);
+                // Si falla, usar los datos básicos del registro
+                this.currentUserSubject.next({
+                  userId: 0,
+                  name: response.name,
+                  email: response.email,
+                  role: response.role
+                } as User);
+              }
+            });
+          }, 300);
         }
       })
     );
@@ -100,12 +118,25 @@ export class AuthService {
 
   private loadUserFromStorage(): void {
     const userStr = localStorage.getItem('user');
-    if (userStr) {
+    const token = this.getToken();
+    if (userStr && token) {
       const user = JSON.parse(userStr);
-      this.http.get<User>(`${this.apiUrl}/users/me`).subscribe(
-        fullUser => this.currentUserSubject.next(fullUser),
-        () => this.logout()
-      );
+      this.http.get<User>(`${this.apiUrl}/users/me`).subscribe({
+        next: (fullUser) => {
+          this.currentUserSubject.next(fullUser);
+        },
+        error: (error) => {
+          console.error('Error loading user from storage:', error);
+          // Solo hacer logout si es un error 401 (no autorizado)
+          // No hacer logout en otros errores para evitar redirecciones innecesarias
+          if (error.status === 401) {
+            this.logout();
+          } else {
+            // Si hay un error pero no es 401, mantener el usuario del localStorage
+            this.currentUserSubject.next(user as User);
+          }
+        }
+      });
     }
   }
 
