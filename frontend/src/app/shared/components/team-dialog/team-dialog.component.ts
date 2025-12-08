@@ -162,6 +162,9 @@ export class TeamDialogComponent implements OnInit {
             description: this.data.team.description,
             coordinatorId: this.data.team.coordinatorId
           });
+          
+          // Cargar docentes para el área seleccionada
+          this.loadCoordinatorsForArea(this.data.team.areaId);
         }
       },
       error: (error: any) => {
@@ -170,32 +173,52 @@ export class TeamDialogComponent implements OnInit {
       }
     });
 
-    // Si es administrador, cargar docentes disponibles (que no son coordinadores o el coordinador actual)
-    // Si se está editando un equipo, excluir ese equipo para incluir su coordinador actual
+    // Escuchar cambios en el área de investigación para cargar docentes del mismo proyecto curricular
     if (this.authService.hasRole('ADMINISTRADOR')) {
-      this.loadingCoordinators = true;
-      const excludeTeamId = this.data?.team?.investigationTeamId;
-      this.apiService.getAvailableTeachers(excludeTeamId).subscribe({
-        next: (teachers: any[]) => {
-          this.coordinators = teachers;
-          this.loadingCoordinators = false;
-          
-          // Si se está editando y hay coordinador actual, establecer el teacherId
-          if (this.data?.team?.coordinatorId) {
-            const currentCoordinator = teachers.find(t => t.coordinatorId === this.data.team.coordinatorId);
-            if (currentCoordinator) {
-              this.teamForm.patchValue({
-                teacherId: currentCoordinator.teacherId || currentCoordinator.coordinatorId
-              });
-            }
-          }
-        },
-        error: (error: any) => {
-          console.error('Error loading teachers:', error);
-          this.loadingCoordinators = false;
+      this.teamForm.get('areaId')?.valueChanges.subscribe(areaId => {
+        if (areaId) {
+          this.loadCoordinatorsForArea(areaId);
+        } else {
+          this.coordinators = [];
         }
       });
     }
+  }
+
+  loadCoordinatorsForArea(areaId: number): void {
+    if (!this.authService.hasRole('ADMINISTRADOR')) {
+      return;
+    }
+
+    // Obtener el projectAreaId del área de investigación seleccionada
+    const selectedArea = this.investigationAreas.find(a => a.investigationAreaId === areaId);
+    if (!selectedArea || !selectedArea.projectAreaId) {
+      this.coordinators = [];
+      return;
+    }
+
+    this.loadingCoordinators = true;
+    const excludeTeamId = this.data?.team?.investigationTeamId;
+    this.apiService.getAvailableTeachers(excludeTeamId, selectedArea.projectAreaId).subscribe({
+      next: (teachers: any[]) => {
+        this.coordinators = teachers;
+        this.loadingCoordinators = false;
+        
+        // Si se está editando y hay coordinador actual, establecer el teacherId
+        if (this.data?.team?.coordinatorId) {
+          const currentCoordinator = teachers.find(t => t.coordinatorId === this.data.team.coordinatorId);
+          if (currentCoordinator) {
+            this.teamForm.patchValue({
+              teacherId: currentCoordinator.teacherId || currentCoordinator.coordinatorId
+            });
+          }
+        }
+      },
+      error: (error: any) => {
+        console.error('Error loading teachers:', error);
+        this.loadingCoordinators = false;
+      }
+    });
   }
 
   onCancel(): void {

@@ -224,9 +224,22 @@ const createTeam = async (teamData) => {
 
     // Si se proporciona teacherId, crear o obtener el coordinador
     if (teacherId && !coordinatorId) {
+      // Obtener el proyecto curricular del área de investigación
+      const areaCheck = await client.query(`
+        SELECT ia.project_area_id
+        FROM Investigation_area ia
+        WHERE ia.investigation_area_id = $1
+      `, [areaId]);
+
+      if (areaCheck.rows.length === 0) {
+        throw new Error('El área de investigación especificada no existe');
+      }
+
+      const teamProjectAreaId = areaCheck.rows[0].project_area_id;
+
       // Verificar que el docente existe y es DOCENTE
       const teacherCheck = await client.query(`
-        SELECT t.teacher_id, u.user_id, u.role
+        SELECT t.teacher_id, t.project_id, u.user_id, u.role
         FROM Teacher t
         INNER JOIN app_user u ON t.user_id = u.user_id
         WHERE t.teacher_id = $1
@@ -240,6 +253,11 @@ const createTeam = async (teamData) => {
       
       if (teacher.role !== 'DOCENTE' && teacher.role !== 'COORDINADOR') {
         throw new Error('El usuario seleccionado no es un docente válido');
+      }
+
+      // Validar que el docente y el grupo pertenezcan al mismo proyecto curricular
+      if (teacher.project_id !== teamProjectAreaId) {
+        throw new Error('El docente seleccionado debe pertenecer al mismo proyecto curricular que el grupo de investigación');
       }
 
       // Verificar si ya es coordinador
@@ -358,10 +376,23 @@ const updateTeam = async (teamId, teamData, preserveCoordinator = false) => {
         }
         finalCoordinatorId = currentTeam.rows[0].cordinator_id;
       } else if (teacherId && !coordinatorId) {
+        // Obtener el proyecto curricular del área de investigación
+        const areaCheck = await client.query(`
+          SELECT ia.project_area_id
+          FROM Investigation_area ia
+          WHERE ia.investigation_area_id = $1
+        `, [areaId]);
+
+        if (areaCheck.rows.length === 0) {
+          throw new Error('El área de investigación especificada no existe');
+        }
+
+        const teamProjectAreaId = areaCheck.rows[0].project_area_id;
+
         // Si se proporciona teacherId, crear o obtener el coordinador
         // Verificar que el docente existe y es DOCENTE
         const teacherCheck = await client.query(`
-          SELECT t.teacher_id, u.user_id, u.role
+          SELECT t.teacher_id, t.project_id, u.user_id, u.role
           FROM Teacher t
           INNER JOIN app_user u ON t.user_id = u.user_id
           WHERE t.teacher_id = $1
@@ -375,6 +406,11 @@ const updateTeam = async (teamId, teamData, preserveCoordinator = false) => {
         
         if (teacher.role !== 'DOCENTE' && teacher.role !== 'COORDINADOR') {
           throw new Error('El usuario seleccionado no es un docente válido');
+        }
+
+        // Validar que el docente y el grupo pertenezcan al mismo proyecto curricular
+        if (teacher.project_id !== teamProjectAreaId) {
+          throw new Error('El docente seleccionado debe pertenecer al mismo proyecto curricular que el grupo de investigación');
         }
 
         // Verificar si ya es coordinador

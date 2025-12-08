@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
@@ -7,6 +8,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { ApiService } from '../../../core/services/api.service';
 import { UserDialogComponent } from '../../../shared/components/user-dialog/user-dialog.component';
 
@@ -15,13 +19,17 @@ import { UserDialogComponent } from '../../../shared/components/user-dialog/user
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     MatCardModule,
     MatTableModule,
     MatButtonModule,
     MatIconModule,
     MatChipsModule,
     MatDialogModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule
   ],
   template: `
     <div class="users-container">
@@ -33,8 +41,46 @@ import { UserDialogComponent } from '../../../shared/components/user-dialog/user
         </button>
       </div>
       
+      <mat-card class="filters-card">
+        <div class="filters">
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Buscar por nombre o email</mat-label>
+            <input matInput [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()" placeholder="Buscar...">
+            <mat-icon matPrefix>search</mat-icon>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Filtrar por rol</mat-label>
+            <mat-select [(ngModel)]="selectedRole" (selectionChange)="applyFilters()">
+              <mat-option [value]="null">Todos los roles</mat-option>
+              <mat-option value="ESTUDIANTE">Estudiante</mat-option>
+              <mat-option value="DOCENTE">Docente</mat-option>
+              <mat-option value="COORDINADOR">Coordinador</mat-option>
+              <mat-option value="ADMINISTRADOR">Administrador</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Filtrar por proyecto curricular</mat-label>
+            <mat-select [(ngModel)]="selectedProjectArea" (selectionChange)="applyFilters()">
+              <mat-option [value]="null">Todos los proyectos</mat-option>
+              @for (area of projectAreas; track area.proyectAreaId) {
+                <mat-option [value]="area.proyectAreaId">{{area.name}}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          @if (searchTerm || selectedRole || selectedProjectArea) {
+            <button mat-button (click)="clearFilters()" class="clear-filters">
+              <mat-icon>clear</mat-icon>
+              Limpiar filtros
+            </button>
+          }
+        </div>
+      </mat-card>
+      
       <mat-card>
-        <table mat-table [dataSource]="users" class="users-table">
+        <table mat-table [dataSource]="filteredUsers" class="users-table">
           <ng-container matColumnDef="name">
             <th mat-header-cell *matHeaderCellDef>Nombre</th>
             <td mat-cell *matCellDef="let user">{{user.name}}</td>
@@ -48,17 +94,26 @@ import { UserDialogComponent } from '../../../shared/components/user-dialog/user
           <ng-container matColumnDef="role">
             <th mat-header-cell *matHeaderCellDef>Rol</th>
             <td mat-cell *matCellDef="let user">
-              <mat-chip>{{user.role}}</mat-chip>
+              <mat-chip [style.background-color]="getRoleColor(user.role)" [style.color]="'white'">
+                {{getRoleLabel(user.role)}}
+              </mat-chip>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="projectArea">
+            <th mat-header-cell *matHeaderCellDef>Proyecto Curricular</th>
+            <td mat-cell *matCellDef="let user">
+              {{user.projectAreaName || 'N/A'}}
             </td>
           </ng-container>
 
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef>Acciones</th>
             <td mat-cell *matCellDef="let user">
-              <button mat-icon-button (click)="editUser(user)">
+              <button mat-icon-button (click)="editUser(user)" title="Editar">
                 <mat-icon>edit</mat-icon>
               </button>
-              <button mat-icon-button color="warn" (click)="deleteUser(user)">
+              <button mat-icon-button color="warn" (click)="deleteUser(user)" title="Eliminar">
                 <mat-icon>delete</mat-icon>
               </button>
             </td>
@@ -67,6 +122,10 @@ import { UserDialogComponent } from '../../../shared/components/user-dialog/user
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
           <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
         </table>
+        
+        @if (filteredUsers.length === 0) {
+          <div class="no-data">No se encontraron usuarios</div>
+        }
       </mat-card>
     </div>
   `,
@@ -84,14 +143,47 @@ import { UserDialogComponent } from '../../../shared/components/user-dialog/user
       margin-bottom: 24px;
     }
     
+    .filters-card {
+      margin-bottom: 24px;
+    }
+    
+    .filters {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    
+    .filter-field {
+      flex: 1;
+      min-width: 200px;
+    }
+    
+    .clear-filters {
+      margin-left: auto;
+    }
+    
     .users-table {
       width: 100%;
+    }
+    
+    .no-data {
+      text-align: center;
+      padding: 24px;
+      color: #999;
+      font-style: italic;
     }
   `]
 })
 export class UsersComponent implements OnInit {
   users: any[] = [];
-  displayedColumns: string[] = ['name', 'email', 'role', 'actions'];
+  filteredUsers: any[] = [];
+  projectAreas: any[] = [];
+  displayedColumns: string[] = ['name', 'email', 'role', 'projectArea', 'actions'];
+  
+  searchTerm: string = '';
+  selectedRole: string | null = null;
+  selectedProjectArea: number | null = null;
 
   constructor(
     private apiService: ApiService,
@@ -101,15 +193,71 @@ export class UsersComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadUsers();
+    this.loadProjectAreas();
   }
 
   loadUsers(): void {
     this.apiService.getUsers().subscribe({
       next: (users) => {
         this.users = users;
+        this.applyFilters();
       },
       error: (error) => console.error('Error loading users:', error)
     });
+  }
+
+  loadProjectAreas(): void {
+    this.apiService.getProjectAreasAdmin().subscribe({
+      next: (areas) => {
+        this.projectAreas = areas;
+      },
+      error: (error) => console.error('Error loading project areas:', error)
+    });
+  }
+
+  applyFilters(): void {
+    this.filteredUsers = this.users.filter(user => {
+      // Filtro por búsqueda (nombre o email)
+      const matchesSearch = !this.searchTerm || 
+        user.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(this.searchTerm.toLowerCase());
+      
+      // Filtro por rol
+      const matchesRole = !this.selectedRole || user.role === this.selectedRole;
+      
+      // Filtro por proyecto curricular
+      const matchesProjectArea = !this.selectedProjectArea || 
+        user.projectAreaId === this.selectedProjectArea;
+      
+      return matchesSearch && matchesRole && matchesProjectArea;
+    });
+  }
+
+  clearFilters(): void {
+    this.searchTerm = '';
+    this.selectedRole = null;
+    this.selectedProjectArea = null;
+    this.applyFilters();
+  }
+
+  getRoleLabel(role: string): string {
+    const labels: { [key: string]: string } = {
+      'ESTUDIANTE': 'Estudiante',
+      'DOCENTE': 'Docente',
+      'COORDINADOR': 'Coordinador',
+      'ADMINISTRADOR': 'Administrador'
+    };
+    return labels[role] || role;
+  }
+
+  getRoleColor(role: string): string {
+    const colors: { [key: string]: string } = {
+      'ESTUDIANTE': '#4caf50',
+      'DOCENTE': '#2196f3',
+      'COORDINADOR': '#ff9800',
+      'ADMINISTRADOR': '#9c27b0'
+    };
+    return colors[role] || '#757575';
   }
 
   createUser(): void {
@@ -129,6 +277,7 @@ export class UsersComponent implements OnInit {
             next: () => {
               this.snackBar.open('Usuario creado exitosamente', 'Cerrar', { duration: 3000 });
               this.loadUsers();
+              this.clearFilters();
             },
             error: (error) => {
               console.error('Error creating user:', error);
@@ -166,6 +315,7 @@ export class UsersComponent implements OnInit {
                   next: () => {
                     this.snackBar.open('Usuario y grupo actualizados exitosamente', 'Cerrar', { duration: 3000 });
                     this.loadUsers();
+                    this.applyFilters();
                   },
                   error: (error) => {
                     console.error('Error updating coordinator team:', error);
@@ -176,6 +326,7 @@ export class UsersComponent implements OnInit {
               } else {
                 this.snackBar.open('Usuario actualizado exitosamente', 'Cerrar', { duration: 3000 });
                 this.loadUsers();
+                this.applyFilters();
               }
               },
               error: (error) => {

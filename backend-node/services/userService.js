@@ -411,8 +411,9 @@ const getAllCoordinators = async (excludeTeamId = null) => {
   return result.rows;
 };
 
-const getAvailableTeachers = async (excludeTeamId = null) => {
+const getAvailableTeachers = async (excludeTeamId = null, projectAreaId = null) => {
   // Obtener docentes que NO son coordinadores, o el docente coordinador del equipo que se está editando
+  // Filtrar por proyecto curricular si se proporciona
   let query = `
     SELECT DISTINCT
       t.teacher_id as "teacherId",
@@ -427,15 +428,32 @@ const getAvailableTeachers = async (excludeTeamId = null) => {
     LEFT JOIN Project_area pa ON t.project_id = pa.proyect_area_id
     LEFT JOIN Cordinator c ON c.teacher_id = t.teacher_id
     LEFT JOIN Investigation_team it ON it.cordinator_id = c.coordinator_id
-    WHERE u.role = 'DOCENTE' AND (c.coordinator_id IS NULL OR it.investigation_team_id IS NULL)
+    WHERE u.role = 'DOCENTE'
   `;
   
   const params = [];
+  let paramIndex = 1;
+  const conditions = [];
   
-  // Si se está editando un equipo, incluir también su coordinador actual
+  // Filtrar por proyecto curricular si se proporciona
+  if (projectAreaId !== null) {
+    conditions.push(`pa.proyect_area_id = $${paramIndex}`);
+    params.push(projectAreaId);
+    paramIndex++;
+  }
+  
+  // Condición para docentes disponibles: no son coordinadores O son coordinadores sin equipo asignado
+  // O si se está editando un equipo, incluir también su coordinador actual
   if (excludeTeamId) {
-    query += ` OR it.investigation_team_id = $1`;
+    conditions.push(`(c.coordinator_id IS NULL OR it.investigation_team_id IS NULL OR it.investigation_team_id = $${paramIndex})`);
     params.push(excludeTeamId);
+    paramIndex++;
+  } else {
+    conditions.push(`(c.coordinator_id IS NULL OR it.investigation_team_id IS NULL)`);
+  }
+  
+  if (conditions.length > 0) {
+    query += ` AND (${conditions.join(' AND ')})`;
   }
   
   query += ` ORDER BY u.name`;

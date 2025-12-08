@@ -146,8 +146,15 @@ export class ApiService {
     return this.http.get<any[]>(`${API_URL}/users/coordinators`, params);
   }
 
-  getAvailableTeachers(excludeTeamId?: number): Observable<any[]> {
-    const params = excludeTeamId ? { params: { excludeTeamId: excludeTeamId.toString() } } : {};
+  getAvailableTeachers(excludeTeamId?: number, projectAreaId?: number): Observable<any[]> {
+    const queryParams: any = {};
+    if (excludeTeamId) {
+      queryParams.excludeTeamId = excludeTeamId.toString();
+    }
+    if (projectAreaId !== undefined && projectAreaId !== null) {
+      queryParams.projectAreaId = projectAreaId.toString();
+    }
+    const params = Object.keys(queryParams).length > 0 ? { params: queryParams } : {};
     return this.http.get<any[]>(`${API_URL}/users/available-teachers`, params);
   }
 

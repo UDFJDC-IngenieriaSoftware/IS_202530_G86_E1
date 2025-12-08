@@ -124,7 +124,8 @@ const getAllCoordinators = async (req, res) => {
 const getAvailableTeachers = async (req, res) => {
   try {
     const excludeTeamId = req.query.excludeTeamId ? parseInt(req.query.excludeTeamId) : null;
-    const teachers = await userService.getAvailableTeachers(excludeTeamId);
+    const projectAreaId = req.query.projectAreaId ? parseInt(req.query.projectAreaId) : null;
+    const teachers = await userService.getAvailableTeachers(excludeTeamId, projectAreaId);
     res.json(teachers);
   } catch (error) {
     console.error('Error getting available teachers:', error);
