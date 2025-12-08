@@ -17,6 +17,10 @@ export const dashboardRoutes: Routes = [
   {
     path: 'projects',
     loadComponent: () => import('./projects/projects.component').then(m => m.ProjectsComponent)
+  },
+  {
+    path: 'my-teams-student',
+    loadComponent: () => import('./my-teams-student/my-teams-student.component').then(m => m.MyTeamsStudentComponent)
   }
 ];
 

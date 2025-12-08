@@ -31,6 +31,22 @@ const getApplicationsByTeam = async (req, res) => {
   }
 };
 
+const getMyApplicationByTeam = async (req, res) => {
+  try {
+    const teamId = parseInt(req.params.teamId);
+    const application = await applicationService.getApplicationByUserAndTeam(req.user.email, teamId);
+    if (application) {
+      res.json(application);
+    } else {
+      // Devolver null en lugar de 404 para que el frontend pueda manejarlo
+      res.status(200).json(null);
+    }
+  } catch (error) {
+    console.error('Error getting application by team:', error);
+    res.status(500).json({ message: 'Error al obtener aplicación' });
+  }
+};
+
 const updateApplicationStatus = async (req, res) => {
   try {
     const applicationId = parseInt(req.params.id);
@@ -47,6 +63,7 @@ module.exports = {
   createApplication,
   getMyApplications,
   getApplicationsByTeam,
+  getMyApplicationByTeam,
   updateApplicationStatus,
 };
 

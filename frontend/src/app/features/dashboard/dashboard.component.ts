@@ -35,6 +35,14 @@ import { ApiService } from '../../core/services/api.service';
               <p>Consulta el estado de tus solicitudes de vinculación</p>
             </mat-card-content>
           </mat-card>
+
+          <mat-card class="dashboard-card" routerLink="/dashboard/my-teams-student">
+            <mat-card-content>
+              <mat-icon>groups</mat-icon>
+              <h3>Mis Grupos</h3>
+              <p>Consulta los grupos a los que perteneces y sus proyectos</p>
+            </mat-card-content>
+          </mat-card>
         }
 
         @if (user?.role === 'COORDINADOR' || user?.role === 'ADMINISTRADOR') {

@@ -41,10 +41,22 @@ import { ApplicationDialogComponent } from '../../../shared/components/applicati
               }
             </div>
             @if (authService.isAuthenticated() && authService.hasRole('ESTUDIANTE')) {
-              <button mat-raised-button color="primary" (click)="openApplicationDialog()" class="apply-button">
-                <mat-icon>how_to_reg</mat-icon>
-                Solicitar Vinculación
-              </button>
+              @if (applicationStatus === 'none' || applicationStatus === 'rejected') {
+                <button mat-raised-button color="primary" (click)="openApplicationDialog()" class="apply-button">
+                  <mat-icon>how_to_reg</mat-icon>
+                  Solicitar Vinculación
+                </button>
+              } @else if (applicationStatus === 'pending') {
+                <div class="application-status pending">
+                  <mat-icon>hourglass_empty</mat-icon>
+                  <span>Solicitud pendiente de revisión</span>
+                </div>
+              } @else if (applicationStatus === 'approved') {
+                <div class="application-status approved">
+                  <mat-icon>check_circle</mat-icon>
+                  <span>Ya estás inscrito en este grupo</span>
+                </div>
+              }
             }
           </mat-card-content>
         </mat-card>
@@ -141,12 +153,42 @@ import { ApplicationDialogComponent } from '../../../shared/components/applicati
       padding: 32px;
       color: #666;
     }
+    
+    .application-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      border-radius: 4px;
+      margin-top: 16px;
+      font-weight: 500;
+    }
+    
+    .application-status.pending {
+      background-color: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffc107;
+    }
+    
+    .application-status.approved {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #28a745;
+    }
+    
+    .application-status mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
   `]
 })
 export class TeamDetailComponent implements OnInit {
   team: any = null;
   projects: any[] = [];
   loading = true;
+  applicationStatus: 'none' | 'pending' | 'approved' | 'rejected' = 'none';
+  existingApplication: any = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -160,6 +202,15 @@ export class TeamDetailComponent implements OnInit {
     if (teamId) {
       this.loadTeam(Number(teamId));
       this.loadProjects(Number(teamId));
+      
+      // Verificar estado de aplicación si es estudiante
+      if (this.authService.isAuthenticated() && this.authService.hasRole('ESTUDIANTE')) {
+        this.authService.currentUser$.subscribe(user => {
+          if (user) {
+            this.checkExistingApplication(Number(teamId));
+          }
+        });
+      }
     }
   }
 
@@ -172,6 +223,29 @@ export class TeamDetailComponent implements OnInit {
       error: (error) => {
         console.error('Error loading team:', error);
         this.loading = false;
+      }
+    });
+  }
+
+  checkExistingApplication(teamId: number): void {
+    this.apiService.getMyApplicationByTeam(teamId).subscribe({
+      next: (application) => {
+        if (application) {
+          this.existingApplication = application;
+          if (application.state === 'APROBADA') {
+            this.applicationStatus = 'approved';
+          } else if (application.state === 'PENDIENTE') {
+            this.applicationStatus = 'pending';
+          } else if (application.state === 'RECHAZADA') {
+            this.applicationStatus = 'rejected';
+          }
+        } else {
+          this.applicationStatus = 'none';
+        }
+      },
+      error: (error) => {
+        // Si no hay aplicación, el status queda como 'none'
+        this.applicationStatus = 'none';
       }
     });
   }
@@ -203,7 +277,8 @@ export class TeamDetailComponent implements OnInit {
 
     dialogRef.afterClosed().subscribe(result => {
       if (result) {
-        // Recargar o mostrar mensaje de éxito
+        // Recargar el estado de la aplicación
+        this.checkExistingApplication(this.team.investigationTeamId);
       }
     });
   }

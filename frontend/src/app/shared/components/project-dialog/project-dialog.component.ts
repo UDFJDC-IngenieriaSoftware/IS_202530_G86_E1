@@ -61,6 +61,24 @@ import { ApiService } from '../../../core/services/api.service';
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Tipo de Proyecto</mat-label>
+          <mat-select formControlName="productTypeId" required>
+            @if (loadingProductTypes) {
+              <mat-option disabled>Cargando tipos...</mat-option>
+            } @else if (productTypes.length === 0) {
+              <mat-option disabled>No hay tipos disponibles</mat-option>
+            } @else {
+              @for (type of productTypes; track type.productTypeId) {
+                <mat-option [value]="type.productTypeId">{{type.name}}</mat-option>
+              }
+            }
+          </mat-select>
+          @if (projectForm.get('productTypeId')?.hasError('required')) {
+            <mat-error>El tipo de proyecto es obligatorio</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
           <mat-label>Estado</mat-label>
           <mat-select formControlName="state" required>
             <mat-option [value]="1">Activo</mat-option>
@@ -99,7 +117,9 @@ import { ApiService } from '../../../core/services/api.service';
 export class ProjectDialogComponent implements OnInit {
   projectForm: FormGroup;
   teams: any[] = [];
+  productTypes: any[] = [];
   loading = false;
+  loadingProductTypes = false;
 
   constructor(
     private fb: FormBuilder,
@@ -111,7 +131,8 @@ export class ProjectDialogComponent implements OnInit {
       teamId: ['', [Validators.required]],
       title: ['', [Validators.required]],
       resume: ['', [Validators.required]],
-      state: [1, [Validators.required]]
+      state: [1, [Validators.required]],
+      productTypeId: ['', [Validators.required]]
     });
   }
 
@@ -120,9 +141,28 @@ export class ProjectDialogComponent implements OnInit {
     console.log('ProjectDialogComponent - Loading teams...');
     this.loading = true;
     
-    // Deshabilitar el campo mientras carga
+    // Deshabilitar los campos mientras cargan
     this.projectForm.get('teamId')?.disable();
+    this.projectForm.get('productTypeId')?.disable();
     
+    // Cargar tipos de productos
+    this.loadingProductTypes = true;
+    this.apiService.getProductTypes().subscribe({
+      next: (types: any[]) => {
+        console.log('ProjectDialogComponent - Product types received:', types);
+        this.productTypes = types || [];
+        this.loadingProductTypes = false;
+        this.projectForm.get('productTypeId')?.enable();
+      },
+      error: (error: any) => {
+        console.error('ProjectDialogComponent - Error loading product types:', error);
+        this.productTypes = [];
+        this.loadingProductTypes = false;
+        this.projectForm.get('productTypeId')?.enable();
+      }
+    });
+    
+    // Cargar equipos
     this.apiService.getMyTeams().subscribe({
       next: (teams: any[]) => {
         console.log('ProjectDialogComponent - Teams received:', teams);
@@ -139,7 +179,8 @@ export class ProjectDialogComponent implements OnInit {
             teamId: this.data.project.teamId,
             title: this.data.project.title,
             resume: this.data.project.resume,
-            state: this.data.project.state
+            state: this.data.project.state,
+            productTypeId: this.data.project.productTypeId || ''
           });
         }
       },
@@ -164,7 +205,16 @@ export class ProjectDialogComponent implements OnInit {
 
   onSubmit(): void {
     if (this.projectForm.valid) {
-      this.dialogRef.close(this.projectForm.value);
+      const formValue = this.projectForm.value;
+      // Asegurar que los valores numéricos sean números
+      const projectData = {
+        teamId: parseInt(formValue.teamId, 10),
+        title: formValue.title,
+        resume: formValue.resume,
+        state: parseInt(formValue.state, 10),
+        productTypeId: parseInt(formValue.productTypeId, 10)
+      };
+      this.dialogRef.close(projectData);
     }
   }
 }

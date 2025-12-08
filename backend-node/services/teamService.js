@@ -187,22 +187,92 @@ const createTeam = async (teamData) => {
   return await getTeamById(result.rows[0].investigation_team_id);
 };
 
-const updateTeam = async (teamId, teamData) => {
+const updateTeam = async (teamId, teamData, preserveCoordinator = false) => {
   const { name, teamEmail, description, areaId, coordinatorId } = teamData;
 
-  const result = await pool.query(
-    `UPDATE Investigation_team 
-     SET name = $1, team_email = $2, description = $3, area_id = $4, cordinator_id = $5
-     WHERE investigation_team_id = $6
-     RETURNING investigation_team_id`,
-    [name, teamEmail, description, areaId, coordinatorId, teamId]
-  );
+  console.log('updateTeam service - teamId:', teamId);
+  console.log('updateTeam service - teamData:', teamData);
+  console.log('updateTeam service - preserveCoordinator:', preserveCoordinator);
 
-  if (result.rows.length === 0) {
-    throw new Error('Equipo no encontrado');
+  // Validar que los campos requeridos estén presentes
+  if (!name || !teamEmail || !description || areaId === undefined || areaId === null) {
+    throw new Error('Faltan campos requeridos: name, teamEmail, description, areaId');
   }
 
-  return await getTeamById(teamId);
+  // Si preserveCoordinator es true, no actualizar el coordinator_id (para coordinadores)
+  if (preserveCoordinator) {
+    console.log('updateTeam service - Updating without coordinator_id');
+    const result = await pool.query(
+      `UPDATE Investigation_team 
+       SET name = $1, team_email = $2, description = $3, area_id = $4
+       WHERE investigation_team_id = $5
+       RETURNING investigation_team_id, cordinator_id`,
+      [name, teamEmail, description, areaId, teamId]
+    );
+
+    if (result.rows.length === 0) {
+      throw new Error('Equipo no encontrado');
+    }
+
+    console.log('updateTeam service - Update result:', result.rows[0]);
+    console.log('updateTeam service - cordinator_id after update:', result.rows[0].cordinator_id);
+
+    return await getTeamById(teamId);
+  } else {
+    // Administradores pueden cambiar el coordinador
+    // Si no se proporciona coordinatorId, obtener el actual del equipo
+    let finalCoordinatorId = coordinatorId;
+    if (finalCoordinatorId === undefined || finalCoordinatorId === null) {
+      const currentTeam = await pool.query(
+        'SELECT cordinator_id FROM Investigation_team WHERE investigation_team_id = $1',
+        [teamId]
+      );
+      if (currentTeam.rows.length === 0) {
+        throw new Error('Equipo no encontrado');
+      }
+      finalCoordinatorId = currentTeam.rows[0].cordinator_id;
+    }
+
+    console.log('updateTeam service - Updating with coordinator_id:', finalCoordinatorId);
+    const result = await pool.query(
+      `UPDATE Investigation_team 
+       SET name = $1, team_email = $2, description = $3, area_id = $4, cordinator_id = $5
+       WHERE investigation_team_id = $6
+       RETURNING investigation_team_id`,
+      [name, teamEmail, description, areaId, finalCoordinatorId, teamId]
+    );
+
+    if (result.rows.length === 0) {
+      throw new Error('Equipo no encontrado');
+    }
+
+    return await getTeamById(teamId);
+  }
+};
+
+const getTeamsByStudent = async (userId) => {
+  const result = await pool.query(`
+    SELECT DISTINCT
+      it.investigation_team_id as "investigationTeamId",
+      it.name,
+      it.team_email as "teamEmail",
+      it.description,
+      ia.investigation_area_id as "areaId",
+      ia.name as "areaName",
+      c.coordinator_id as "coordinatorId",
+      u.name as "coordinatorName",
+      u.email as "coordinatorEmail"
+    FROM Investigation_team it
+    INNER JOIN Investigation_area ia ON it.area_id = ia.investigation_area_id
+    INNER JOIN Cordinator c ON it.cordinator_id = c.coordinator_id
+    INNER JOIN Teacher t ON c.teacher_id = t.teacher_id
+    INNER JOIN app_user u ON t.user_id = u.user_id
+    INNER JOIN Application a ON it.investigation_team_id = a.investigation_team_id
+    WHERE a.user_id = $1 AND a.state = 'APROBADA'
+    ORDER BY it.investigation_team_id
+  `, [userId]);
+
+  return result.rows;
 };
 
 const deleteTeam = async (teamId) => {
@@ -221,6 +291,7 @@ module.exports = {
   getTeamById,
   getTeamsByArea,
   getTeamsByCoordinator,
+  getTeamsByStudent,
   isTeamOwnedByCoordinator,
   createTeam,
   updateTeam,

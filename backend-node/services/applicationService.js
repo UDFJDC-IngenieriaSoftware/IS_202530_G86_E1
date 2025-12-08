@@ -110,6 +110,35 @@ const getApplicationById = async (applicationId) => {
   return result.rows[0];
 };
 
+const getApplicationByUserAndTeam = async (userEmail, teamId) => {
+  const result = await pool.query(`
+    SELECT 
+      a.application_id as "applicationId",
+      a.user_id as "userId",
+      a.investigation_team_id as "investigationTeamId",
+      a.state,
+      a.application_date as "applicationDate",
+      a.application_message as "applicationMessage",
+      a.answer_date as "answerDate",
+      a.answer_message as "answerMessage",
+      u.name as "userName",
+      u.email as "userEmail",
+      it.name as "teamName"
+    FROM Application a
+    INNER JOIN app_user u ON a.user_id = u.user_id
+    INNER JOIN Investigation_team it ON a.investigation_team_id = it.investigation_team_id
+    WHERE u.email = $1 AND a.investigation_team_id = $2
+    ORDER BY a.application_date DESC
+    LIMIT 1
+  `, [userEmail, teamId]);
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  return result.rows[0];
+};
+
 const updateApplicationStatus = async (applicationId, state, answerMessage) => {
   const result = await pool.query(
     `UPDATE Application 
@@ -130,6 +159,7 @@ module.exports = {
   createApplication,
   getApplicationsByUser,
   getApplicationsByTeam,
+  getApplicationByUserAndTeam,
   updateApplicationStatus,
 };
 

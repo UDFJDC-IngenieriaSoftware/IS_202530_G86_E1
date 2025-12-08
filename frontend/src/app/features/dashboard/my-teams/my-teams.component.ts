@@ -10,7 +10,9 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { ApiService } from '../../../core/services/api.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { ApplicationResponseDialogComponent } from '../../../shared/components/application-response-dialog/application-response-dialog.component';
+import { TeamDialogComponent } from '../../../shared/components/team-dialog/team-dialog.component';
 
 @Component({
   selector: 'app-my-teams',
@@ -31,10 +33,12 @@ import { ApplicationResponseDialogComponent } from '../../../shared/components/a
     <div class="my-teams-container">
       <div class="header">
         <h1>Mis Grupos de Investigación</h1>
-        <button mat-raised-button color="primary" (click)="createTeam()">
-          <mat-icon>add</mat-icon>
-          Crear Grupo
-        </button>
+        @if (authService.hasRole('ADMINISTRADOR')) {
+          <button mat-raised-button color="primary" (click)="createTeam()">
+            <mat-icon>add</mat-icon>
+            Crear Grupo
+          </button>
+        }
       </div>
 
       @if (teams.length > 0) {
@@ -223,11 +227,13 @@ export class MyTeamsComponent implements OnInit {
   teams: any[] = [];
   teamApplications: { [key: number]: any[] } = {};
   displayedColumns: string[] = ['userName', 'userEmail', 'applicationDate', 'state', 'message', 'actions'];
+  loading = false;
 
   constructor(
     private apiService: ApiService,
     private dialog: MatDialog,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    public authService: AuthService
   ) {}
 
   ngOnInit(): void {
@@ -321,8 +327,29 @@ export class MyTeamsComponent implements OnInit {
   }
 
   editTeam(team: any): void {
-    // TODO: Implementar edición
-    this.snackBar.open('Funcionalidad en desarrollo', 'Cerrar', { duration: 2000 });
+    const dialogRef = this.dialog.open(TeamDialogComponent, {
+      width: '600px',
+      data: { team }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.loading = true;
+        this.apiService.updateTeam(team.investigationTeamId, result).subscribe({
+          next: () => {
+            this.snackBar.open('Grupo actualizado exitosamente', 'Cerrar', { duration: 3000 });
+            this.loading = false;
+            this.loadTeams(); // Recargar la lista
+          },
+          error: (error) => {
+            console.error('Error updating team:', error);
+            const errorMessage = error.error?.message || 'Error al actualizar el grupo';
+            this.snackBar.open(errorMessage, 'Cerrar', { duration: 3000 });
+            this.loading = false;
+          }
+        });
+      }
+    });
   }
 }
 

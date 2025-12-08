@@ -20,6 +20,10 @@ export class ApiService {
     return this.http.get<any[]>(`${API_URL}/teams/my-teams`);
   }
 
+  getMyTeamsAsStudent(): Observable<any[]> {
+    return this.http.get<any[]>(`${API_URL}/teams/my-teams-student`);
+  }
+
   getTeamById(id: number): Observable<any> {
     return this.http.get<any>(`${API_URL}/teams/public/${id}`);
   }

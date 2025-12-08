@@ -59,11 +59,72 @@ const createTeam = async (req, res) => {
 const updateTeam = async (req, res) => {
   try {
     const teamId = parseInt(req.params.id);
-    const team = await teamService.updateTeam(teamId, req.body);
-    res.json(team);
+    const userId = req.user.userId;
+    const userRole = req.user.role;
+    
+    console.log('updateTeam - teamId:', teamId);
+    console.log('updateTeam - userId:', userId);
+    console.log('updateTeam - userRole:', userRole);
+    console.log('updateTeam - req.body:', req.body);
+    
+    // Validar que los campos requeridos estén presentes
+    const { name, teamEmail, description, areaId } = req.body;
+    if (!name || !teamEmail || !description || !areaId) {
+      return res.status(400).json({ 
+        message: 'Faltan campos requeridos: name, teamEmail, description, areaId' 
+      });
+    }
+    
+    // Preparar los datos del equipo
+    const teamData = {
+      name: name.trim(),
+      teamEmail: teamEmail.trim(),
+      description: description.trim(),
+      areaId: parseInt(areaId, 10)
+    };
+    
+    // Validar que areaId sea un número válido
+    if (isNaN(teamData.areaId)) {
+      return res.status(400).json({ message: 'El área de investigación debe ser un número válido' });
+    }
+    
+    // Si es coordinador, verificar que el equipo le pertenece
+    if (userRole === 'COORDINADOR') {
+      const isOwner = await teamService.isTeamOwnedByCoordinator(teamId, userId);
+      if (!isOwner) {
+        return res.status(403).json({ message: 'No tienes permiso para editar este equipo' });
+      }
+      // Los coordinadores no pueden cambiar el coordinator_id
+      console.log('updateTeam - Updating as coordinator, preserveCoordinator=true');
+      const team = await teamService.updateTeam(teamId, teamData, true);
+      res.json(team);
+    } else {
+      // Administradores pueden cambiar todo, incluyendo el coordinador
+      // Si no se proporciona coordinatorId, mantener el actual
+      const coordinatorId = req.body.coordinatorId ? parseInt(req.body.coordinatorId, 10) : undefined;
+      const adminTeamData = { ...teamData };
+      if (coordinatorId && !isNaN(coordinatorId)) {
+        adminTeamData.coordinatorId = coordinatorId;
+      }
+      console.log('updateTeam - Updating as admin, preserveCoordinator=false');
+      const team = await teamService.updateTeam(teamId, adminTeamData, false);
+      res.json(team);
+    }
   } catch (error) {
     console.error('Error updating team:', error);
-    res.status(404).json({ message: error.message || 'Error al actualizar equipo' });
+    console.error('Error stack:', error.stack);
+    res.status(400).json({ message: error.message || 'Error al actualizar equipo' });
+  }
+};
+
+const getMyTeamsAsStudent = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const teams = await teamService.getTeamsByStudent(userId);
+    res.json(teams);
+  } catch (error) {
+    console.error('Error getting my teams as student:', error);
+    res.status(500).json({ message: 'Error al obtener mis grupos' });
   }
 };
 
@@ -83,6 +144,7 @@ module.exports = {
   getTeamById,
   getTeamsByArea,
   getMyTeams,
+  getMyTeamsAsStudent,
   createTeam,
   updateTeam,
   deleteTeam,

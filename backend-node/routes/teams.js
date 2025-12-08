@@ -10,8 +10,11 @@ router.get('/public/:id', teamController.getTeamById);
 
 // Rutas protegidas (requieren autenticación)
 router.get('/my-teams', authenticateToken, authorizeRoles('COORDINADOR', 'ADMINISTRADOR'), teamController.getMyTeams);
+router.get('/my-teams-student', authenticateToken, authorizeRoles('ESTUDIANTE'), teamController.getMyTeamsAsStudent);
 
-router.post('/', authenticateToken, authorizeRoles('COORDINADOR', 'ADMINISTRADOR'), teamController.createTeam);
+// Solo administradores pueden crear equipos
+router.post('/', authenticateToken, authorizeRoles('ADMINISTRADOR'), teamController.createTeam);
+// Coordinadores y administradores pueden editar (con validación de propiedad)
 router.put('/:id', authenticateToken, authorizeRoles('COORDINADOR', 'ADMINISTRADOR'), teamController.updateTeam);
 router.delete('/:id', authenticateToken, authorizeRoles('ADMINISTRADOR'), teamController.deleteTeam);
 
