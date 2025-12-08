@@ -9,11 +9,14 @@ const getAllTeams = async () => {
       it.description,
       ia.investigation_area_id as "areaId",
       ia.name as "areaName",
+      pa.proyect_area_id as "projectAreaId",
+      pa.name as "projectAreaName",
       c.coordinator_id as "coordinatorId",
       u.name as "coordinatorName",
       u.email as "coordinatorEmail"
     FROM Investigation_team it
     INNER JOIN Investigation_area ia ON it.area_id = ia.investigation_area_id
+    INNER JOIN Project_area pa ON ia.project_area_id = pa.proyect_area_id
     LEFT JOIN Cordinator c ON it.cordinator_id = c.coordinator_id
     LEFT JOIN Teacher t ON c.teacher_id = t.teacher_id
     LEFT JOIN app_user u ON t.user_id = u.user_id
@@ -32,14 +35,17 @@ const getTeamById = async (teamId) => {
       it.description,
       ia.investigation_area_id as "areaId",
       ia.name as "areaName",
+      pa.proyect_area_id as "projectAreaId",
+      pa.name as "projectAreaName",
       c.coordinator_id as "coordinatorId",
       u.name as "coordinatorName",
       u.email as "coordinatorEmail"
     FROM Investigation_team it
     INNER JOIN Investigation_area ia ON it.area_id = ia.investigation_area_id
-    INNER JOIN Cordinator c ON it.cordinator_id = c.coordinator_id
-    INNER JOIN Teacher t ON c.teacher_id = t.teacher_id
-    INNER JOIN app_user u ON t.user_id = u.user_id
+    INNER JOIN Project_area pa ON ia.project_area_id = pa.proyect_area_id
+    LEFT JOIN Cordinator c ON it.cordinator_id = c.coordinator_id
+    LEFT JOIN Teacher t ON c.teacher_id = t.teacher_id
+    LEFT JOIN app_user u ON t.user_id = u.user_id
     WHERE it.investigation_team_id = $1
   `, [teamId]);
 
@@ -59,14 +65,17 @@ const getTeamsByArea = async (areaId) => {
       it.description,
       ia.investigation_area_id as "areaId",
       ia.name as "areaName",
+      pa.proyect_area_id as "projectAreaId",
+      pa.name as "projectAreaName",
       c.coordinator_id as "coordinatorId",
       u.name as "coordinatorName",
       u.email as "coordinatorEmail"
     FROM Investigation_team it
     INNER JOIN Investigation_area ia ON it.area_id = ia.investigation_area_id
-    INNER JOIN Cordinator c ON it.cordinator_id = c.coordinator_id
-    INNER JOIN Teacher t ON c.teacher_id = t.teacher_id
-    INNER JOIN app_user u ON t.user_id = u.user_id
+    INNER JOIN Project_area pa ON ia.project_area_id = pa.proyect_area_id
+    LEFT JOIN Cordinator c ON it.cordinator_id = c.coordinator_id
+    LEFT JOIN Teacher t ON c.teacher_id = t.teacher_id
+    LEFT JOIN app_user u ON t.user_id = u.user_id
     WHERE ia.investigation_area_id = $1
     ORDER BY it.investigation_team_id
   `, [areaId]);
@@ -129,11 +138,14 @@ const getTeamsByCoordinator = async (userId) => {
         it.description,
         ia.investigation_area_id as "areaId",
         ia.name as "areaName",
+        pa.proyect_area_id as "projectAreaId",
+        pa.name as "projectAreaName",
         c.coordinator_id as "coordinatorId",
         u.name as "coordinatorName",
         u.email as "coordinatorEmail"
       FROM Investigation_team it
       INNER JOIN Investigation_area ia ON it.area_id = ia.investigation_area_id
+      INNER JOIN Project_area pa ON ia.project_area_id = pa.proyect_area_id
       INNER JOIN Cordinator c ON it.cordinator_id = c.coordinator_id
       INNER JOIN Teacher t ON c.teacher_id = t.teacher_id
       INNER JOIN app_user u ON t.user_id = u.user_id
@@ -500,11 +512,14 @@ const getTeamsByStudent = async (userId) => {
       it.description,
       ia.investigation_area_id as "areaId",
       ia.name as "areaName",
+      pa.proyect_area_id as "projectAreaId",
+      pa.name as "projectAreaName",
       c.coordinator_id as "coordinatorId",
       u.name as "coordinatorName",
       u.email as "coordinatorEmail"
     FROM Investigation_team it
     INNER JOIN Investigation_area ia ON it.area_id = ia.investigation_area_id
+    INNER JOIN Project_area pa ON ia.project_area_id = pa.proyect_area_id
     INNER JOIN Cordinator c ON it.cordinator_id = c.coordinator_id
     INNER JOIN Teacher t ON c.teacher_id = t.teacher_id
     INNER JOIN app_user u ON t.user_id = u.user_id

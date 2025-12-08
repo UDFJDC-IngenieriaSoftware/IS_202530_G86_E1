@@ -196,5 +196,34 @@ export class ApiService {
   deleteProjectArea(id: number): Observable<void> {
     return this.http.delete<void>(`${API_URL}/project-areas/${id}`);
   }
+
+  getUsersByProjectArea(id: number): Observable<any> {
+    return this.http.get<any>(`${API_URL}/project-areas/${id}/users`);
+  }
+
+  // Investigation Areas (Admin)
+  getInvestigationAreasAdmin(): Observable<any[]> {
+    return this.http.get<any[]>(`${API_URL}/investigation-areas`);
+  }
+
+  getInvestigationAreasByProjectArea(projectAreaId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${API_URL}/investigation-areas/project-area/${projectAreaId}`);
+  }
+
+  getInvestigationAreaById(id: number): Observable<any> {
+    return this.http.get<any>(`${API_URL}/investigation-areas/${id}`);
+  }
+
+  createInvestigationArea(investigationArea: any): Observable<any> {
+    return this.http.post<any>(`${API_URL}/investigation-areas`, investigationArea);
+  }
+
+  updateInvestigationArea(id: number, investigationArea: any): Observable<any> {
+    return this.http.put<any>(`${API_URL}/investigation-areas/${id}`, investigationArea);
+  }
+
+  deleteInvestigationArea(id: number): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/investigation-areas/${id}`);
+  }
 }
 

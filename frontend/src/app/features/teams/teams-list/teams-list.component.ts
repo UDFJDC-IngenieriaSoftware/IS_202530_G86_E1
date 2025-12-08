@@ -60,6 +60,9 @@ import { ApiService } from '../../../core/services/api.service';
               <p class="team-description">{{team.description}}</p>
               <div class="team-info">
                 <span><mat-icon>email</mat-icon> {{team.teamEmail}}</span>
+                @if (team.projectAreaName) {
+                  <span><mat-icon>school</mat-icon> {{team.projectAreaName}}</span>
+                }
                 @if (team.coordinatorName) {
                   <span><mat-icon>person</mat-icon> {{team.coordinatorName}}</span>
                 }

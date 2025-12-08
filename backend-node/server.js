@@ -13,6 +13,7 @@ const projectRoutes = require('./routes/projects');
 const applicationRoutes = require('./routes/applications');
 const productTypeRoutes = require('./routes/productTypes');
 const projectAreaRoutes = require('./routes/projectAreas');
+const investigationAreaRoutes = require('./routes/investigationAreas');
 
 const app = express();
 const PORT = process.env.PORT || 8081;
@@ -39,6 +40,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/product-types', productTypeRoutes);
 app.use('/api/project-areas', projectAreaRoutes);
+app.use('/api/investigation-areas', investigationAreaRoutes);
 
 // Error handler
 app.use(errorHandler);

@@ -36,6 +36,9 @@ import { ApplicationDialogComponent } from '../../../shared/components/applicati
             <p class="description">{{team.description}}</p>
             <div class="team-meta">
               <span><mat-icon>email</mat-icon> {{team.teamEmail}}</span>
+              @if (team.projectAreaName) {
+                <span><mat-icon>school</mat-icon> Proyecto Curricular: {{team.projectAreaName}}</span>
+              }
               @if (team.coordinatorName) {
                 <span><mat-icon>person</mat-icon> Coordinador: {{team.coordinatorName}}</span>
               }
