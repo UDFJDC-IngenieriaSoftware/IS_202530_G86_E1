@@ -14,9 +14,9 @@ const getAllTeams = async () => {
       u.email as "coordinatorEmail"
     FROM Investigation_team it
     INNER JOIN Investigation_area ia ON it.area_id = ia.investigation_area_id
-    INNER JOIN Cordinator c ON it.cordinator_id = c.coordinator_id
-    INNER JOIN Teacher t ON c.teacher_id = t.teacher_id
-    INNER JOIN app_user u ON t.user_id = u.user_id
+    LEFT JOIN Cordinator c ON it.cordinator_id = c.coordinator_id
+    LEFT JOIN Teacher t ON c.teacher_id = t.teacher_id
+    LEFT JOIN app_user u ON t.user_id = u.user_id
     ORDER BY it.investigation_team_id
   `);
 
@@ -174,17 +174,109 @@ const isTeamOwnedByCoordinator = async (teamId, userId) => {
   return parseInt(result.rows[0].count) > 0;
 };
 
+const getCoordinatorIdByUserId = async (userId) => {
+  const result = await pool.query(`
+    SELECT c.coordinator_id
+    FROM Cordinator c
+    INNER JOIN Teacher t ON c.teacher_id = t.teacher_id
+    WHERE t.user_id = $1
+    LIMIT 1
+  `, [userId]);
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  return result.rows[0].coordinator_id;
+};
+
 const createTeam = async (teamData) => {
-  const { name, teamEmail, description, areaId, coordinatorId } = teamData;
+  const { name, teamEmail, description, areaId, coordinatorId, teacherId } = teamData;
+  const client = await pool.connect();
 
-  const result = await pool.query(
-    `INSERT INTO Investigation_team (area_id, cordinator_id, name, team_email, description)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING investigation_team_id, name, team_email, description, area_id, cordinator_id`,
-    [areaId, coordinatorId, name, teamEmail, description]
-  );
+  try {
+    await client.query('BEGIN');
 
-  return await getTeamById(result.rows[0].investigation_team_id);
+    let finalCoordinatorId = coordinatorId;
+
+    // Si se proporciona teacherId, crear o obtener el coordinador
+    if (teacherId && !coordinatorId) {
+      // Verificar que el docente existe y es DOCENTE
+      const teacherCheck = await client.query(`
+        SELECT t.teacher_id, u.user_id, u.role
+        FROM Teacher t
+        INNER JOIN app_user u ON t.user_id = u.user_id
+        WHERE t.teacher_id = $1
+      `, [teacherId]);
+
+      if (teacherCheck.rows.length === 0) {
+        throw new Error('El docente seleccionado no existe');
+      }
+
+      const teacher = teacherCheck.rows[0];
+      
+      if (teacher.role !== 'DOCENTE' && teacher.role !== 'COORDINADOR') {
+        throw new Error('El usuario seleccionado no es un docente válido');
+      }
+
+      // Verificar si ya es coordinador
+      const existingCoordinator = await client.query(
+        'SELECT coordinator_id FROM Cordinator WHERE teacher_id = $1',
+        [teacherId]
+      );
+
+      if (existingCoordinator.rows.length > 0) {
+        finalCoordinatorId = existingCoordinator.rows[0].coordinator_id;
+      } else {
+        // Crear nuevo coordinador
+        const coordinatorIdResult = await client.query(
+          'SELECT COALESCE(MAX(coordinator_id), 0) + 1 as next_id FROM Cordinator'
+        );
+        finalCoordinatorId = coordinatorIdResult.rows[0].next_id;
+
+        await client.query(
+          'INSERT INTO Cordinator (coordinator_id, teacher_id) VALUES ($1, $2)',
+          [finalCoordinatorId, teacherId]
+        );
+
+        // Cambiar el rol del docente a COORDINADOR
+        await client.query(
+          'UPDATE app_user SET role = $1 WHERE user_id = $2',
+          ['COORDINADOR', teacher.user_id]
+        );
+      }
+    }
+
+    // Validar que se tenga un coordinador
+    if (!finalCoordinatorId) {
+      throw new Error('Un grupo debe tener un coordinador asignado');
+    }
+
+    // Verificar que el coordinador no esté ya coordinando otro grupo
+    const existingTeam = await client.query(
+      'SELECT investigation_team_id, name FROM Investigation_team WHERE cordinator_id = $1',
+      [finalCoordinatorId]
+    );
+
+    if (existingTeam.rows.length > 0) {
+      throw new Error(`El coordinador ya está coordinando el grupo "${existingTeam.rows[0].name}". Cada coordinador solo puede coordinar un grupo.`);
+    }
+
+    const result = await client.query(
+      `INSERT INTO Investigation_team (area_id, cordinator_id, name, team_email, description)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING investigation_team_id, name, team_email, description, area_id, cordinator_id`,
+      [areaId, finalCoordinatorId, name, teamEmail, description]
+    );
+
+    await client.query('COMMIT');
+    return await getTeamById(result.rows[0].investigation_team_id);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 const updateTeam = async (teamId, teamData, preserveCoordinator = false) => {
@@ -220,33 +312,103 @@ const updateTeam = async (teamId, teamData, preserveCoordinator = false) => {
     return await getTeamById(teamId);
   } else {
     // Administradores pueden cambiar el coordinador
-    // Si no se proporciona coordinatorId, obtener el actual del equipo
-    let finalCoordinatorId = coordinatorId;
-    if (finalCoordinatorId === undefined || finalCoordinatorId === null) {
-      const currentTeam = await pool.query(
-        'SELECT cordinator_id FROM Investigation_team WHERE investigation_team_id = $1',
-        [teamId]
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Si no se proporciona coordinatorId ni teacherId, obtener el actual del equipo
+      let finalCoordinatorId = coordinatorId;
+      const { teacherId } = teamData;
+
+      if (!finalCoordinatorId && !teacherId) {
+        const currentTeam = await client.query(
+          'SELECT cordinator_id FROM Investigation_team WHERE investigation_team_id = $1',
+          [teamId]
+        );
+        if (currentTeam.rows.length === 0) {
+          throw new Error('Equipo no encontrado');
+        }
+        finalCoordinatorId = currentTeam.rows[0].cordinator_id;
+      } else if (teacherId && !coordinatorId) {
+        // Si se proporciona teacherId, crear o obtener el coordinador
+        // Verificar que el docente existe y es DOCENTE
+        const teacherCheck = await client.query(`
+          SELECT t.teacher_id, u.user_id, u.role
+          FROM Teacher t
+          INNER JOIN app_user u ON t.user_id = u.user_id
+          WHERE t.teacher_id = $1
+        `, [teacherId]);
+
+        if (teacherCheck.rows.length === 0) {
+          throw new Error('El docente seleccionado no existe');
+        }
+
+        const teacher = teacherCheck.rows[0];
+        
+        if (teacher.role !== 'DOCENTE' && teacher.role !== 'COORDINADOR') {
+          throw new Error('El usuario seleccionado no es un docente válido');
+        }
+
+        // Verificar si ya es coordinador
+        const existingCoordinator = await client.query(
+          'SELECT coordinator_id FROM Cordinator WHERE teacher_id = $1',
+          [teacherId]
+        );
+
+        if (existingCoordinator.rows.length > 0) {
+          finalCoordinatorId = existingCoordinator.rows[0].coordinator_id;
+        } else {
+          // Crear nuevo coordinador
+          const coordinatorIdResult = await client.query(
+            'SELECT COALESCE(MAX(coordinator_id), 0) + 1 as next_id FROM Cordinator'
+          );
+          finalCoordinatorId = coordinatorIdResult.rows[0].next_id;
+
+          await client.query(
+            'INSERT INTO Cordinator (coordinator_id, teacher_id) VALUES ($1, $2)',
+            [finalCoordinatorId, teacherId]
+          );
+
+          // Cambiar el rol del docente a COORDINADOR
+          await client.query(
+            'UPDATE app_user SET role = $1 WHERE user_id = $2',
+            ['COORDINADOR', teacher.user_id]
+          );
+        }
+      }
+
+      // Verificar que el coordinador no esté ya coordinando otro grupo
+      // (excepto si es el mismo grupo que se está editando)
+      const existingTeam = await client.query(
+        'SELECT investigation_team_id, name FROM Investigation_team WHERE cordinator_id = $1 AND investigation_team_id != $2',
+        [finalCoordinatorId, teamId]
       );
-      if (currentTeam.rows.length === 0) {
+
+      if (existingTeam.rows.length > 0) {
+        throw new Error(`El coordinador ya está coordinando el grupo "${existingTeam.rows[0].name}". Cada coordinador solo puede coordinar un grupo.`);
+      }
+
+      console.log('updateTeam service - Updating with coordinator_id:', finalCoordinatorId);
+      const result = await client.query(
+        `UPDATE Investigation_team 
+         SET name = $1, team_email = $2, description = $3, area_id = $4, cordinator_id = $5
+         WHERE investigation_team_id = $6
+         RETURNING investigation_team_id`,
+        [name, teamEmail, description, areaId, finalCoordinatorId, teamId]
+      );
+
+      if (result.rows.length === 0) {
         throw new Error('Equipo no encontrado');
       }
-      finalCoordinatorId = currentTeam.rows[0].cordinator_id;
+
+      await client.query('COMMIT');
+      return await getTeamById(teamId);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
-
-    console.log('updateTeam service - Updating with coordinator_id:', finalCoordinatorId);
-    const result = await pool.query(
-      `UPDATE Investigation_team 
-       SET name = $1, team_email = $2, description = $3, area_id = $4, cordinator_id = $5
-       WHERE investigation_team_id = $6
-       RETURNING investigation_team_id`,
-      [name, teamEmail, description, areaId, finalCoordinatorId, teamId]
-    );
-
-    if (result.rows.length === 0) {
-      throw new Error('Equipo no encontrado');
-    }
-
-    return await getTeamById(teamId);
   }
 };
 
@@ -293,6 +455,7 @@ module.exports = {
   getTeamsByCoordinator,
   getTeamsByStudent,
   isTeamOwnedByCoordinator,
+  getCoordinatorIdByUserId,
   createTeam,
   updateTeam,
   deleteTeam,

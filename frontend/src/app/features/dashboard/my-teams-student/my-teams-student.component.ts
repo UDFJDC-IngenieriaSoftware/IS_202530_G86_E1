@@ -72,6 +72,14 @@ import { ApiService } from '../../../core/services/api.service';
                           </mat-card-header>
                           <mat-card-content>
                             <p>{{project.resume}}</p>
+                            @if (project.document && project.document.trim() !== '') {
+                              <div class="document-link-container">
+                                <a [href]="project.document" target="_blank" rel="noopener noreferrer" class="document-link">
+                                  <mat-icon>link</mat-icon>
+                                  Ver documento/carpeta
+                                </a>
+                              </div>
+                            }
                           </mat-card-content>
                         </mat-card>
                       }
@@ -205,6 +213,33 @@ import { ApiService } from '../../../core/services/api.service';
       background-color: #f44336;
       color: white;
     }
+    
+    .document-link-container {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #e0e0e0;
+    }
+    
+    .document-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #2196f3;
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+    
+    .document-link:hover {
+      text-decoration: underline;
+    }
+    
+    .document-link mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      vertical-align: middle;
+    }
   `]
 })
 export class MyTeamsStudentComponent implements OnInit {
@@ -242,6 +277,10 @@ export class MyTeamsStudentComponent implements OnInit {
   loadProjectsForTeam(teamId: number): void {
     this.apiService.getProjectsByTeam(teamId).subscribe({
       next: (projects) => {
+        console.log('Projects loaded for team', teamId, ':', projects);
+        projects.forEach((p: any) => {
+          console.log('Project:', p.title, 'document:', p.document);
+        });
         this.teamProjects[teamId] = projects || [];
       },
       error: (error) => {

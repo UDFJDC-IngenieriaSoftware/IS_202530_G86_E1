@@ -27,7 +27,7 @@ import { ApiService } from '../../core/services/api.service';
       </div>
 
       <div class="dashboard-cards">
-        @if (user?.role === 'ESTUDIANTE') {
+        @if (user?.role === 'ESTUDIANTE' || user?.role === 'DOCENTE') {
           <mat-card class="dashboard-card" routerLink="/dashboard/applications">
             <mat-card-content>
               <mat-icon>how_to_reg</mat-icon>
@@ -43,14 +43,29 @@ import { ApiService } from '../../core/services/api.service';
               <p>Consulta los grupos a los que perteneces y sus proyectos</p>
             </mat-card-content>
           </mat-card>
+
+          @if (user?.role === 'DOCENTE') {
+            <mat-card class="dashboard-card" routerLink="/dashboard/projects">
+              <mat-card-content>
+                <mat-icon>science</mat-icon>
+                <h3>Proyectos</h3>
+                <p>Consulta los proyectos de investigación</p>
+              </mat-card-content>
+            </mat-card>
+          }
         }
 
         @if (user?.role === 'COORDINADOR' || user?.role === 'ADMINISTRADOR') {
           <mat-card class="dashboard-card" routerLink="/dashboard/my-teams">
             <mat-card-content>
               <mat-icon>groups</mat-icon>
-              <h3>Mis Grupos</h3>
-              <p>Gestiona tus grupos de investigación</p>
+              @if (user?.role === 'ADMINISTRADOR') {
+                <h3>Grupos</h3>
+                <p>Consulta y gestiona los grupos de investigación</p>
+              } @else {
+                <h3>Mis Grupos</h3>
+                <p>Gestiona tus grupos de investigación</p>
+              }
             </mat-card-content>
           </mat-card>
 

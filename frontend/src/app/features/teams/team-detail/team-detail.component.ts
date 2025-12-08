@@ -40,7 +40,7 @@ import { ApplicationDialogComponent } from '../../../shared/components/applicati
                 <span><mat-icon>person</mat-icon> Coordinador: {{team.coordinatorName}}</span>
               }
             </div>
-            @if (authService.isAuthenticated() && authService.hasRole('ESTUDIANTE')) {
+            @if (authService.isAuthenticated() && (authService.hasRole('ESTUDIANTE') || authService.hasRole('DOCENTE'))) {
               @if (applicationStatus === 'none' || applicationStatus === 'rejected') {
                 <button mat-raised-button color="primary" (click)="openApplicationDialog()" class="apply-button">
                   <mat-icon>how_to_reg</mat-icon>
@@ -75,6 +75,14 @@ import { ApplicationDialogComponent } from '../../../shared/components/applicati
                   </mat-card-header>
                   <mat-card-content>
                     <p>{{project.resume}}</p>
+                    @if (project.document && project.document.trim() !== '') {
+                      <div class="document-link-container">
+                        <a [href]="project.document" target="_blank" rel="noopener noreferrer" class="document-link">
+                          <mat-icon>link</mat-icon>
+                          Ver documento/carpeta
+                        </a>
+                      </div>
+                    }
                   </mat-card-content>
                 </mat-card>
               }
@@ -181,6 +189,33 @@ import { ApplicationDialogComponent } from '../../../shared/components/applicati
       width: 20px;
       height: 20px;
     }
+    
+    .document-link-container {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #e0e0e0;
+    }
+    
+    .document-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #2196f3;
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+    
+    .document-link:hover {
+      text-decoration: underline;
+    }
+    
+    .document-link mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      vertical-align: middle;
+    }
   `]
 })
 export class TeamDetailComponent implements OnInit {
@@ -203,8 +238,8 @@ export class TeamDetailComponent implements OnInit {
       this.loadTeam(Number(teamId));
       this.loadProjects(Number(teamId));
       
-      // Verificar estado de aplicación si es estudiante
-      if (this.authService.isAuthenticated() && this.authService.hasRole('ESTUDIANTE')) {
+      // Verificar estado de aplicación si es estudiante o docente
+      if (this.authService.isAuthenticated() && (this.authService.hasRole('ESTUDIANTE') || this.authService.hasRole('DOCENTE'))) {
         this.authService.currentUser$.subscribe(user => {
           if (user) {
             this.checkExistingApplication(Number(teamId));

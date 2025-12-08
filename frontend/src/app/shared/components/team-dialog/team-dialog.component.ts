@@ -69,6 +69,29 @@ import { AuthService } from '../../../core/services/auth.service';
             <mat-error>La descripción es obligatoria</mat-error>
           }
         </mat-form-field>
+
+        @if (authService.hasRole('ADMINISTRADOR')) {
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Docente Coordinador*</mat-label>
+            <mat-select formControlName="teacherId" required>
+              @if (loadingCoordinators) {
+                <mat-option disabled>Cargando docentes...</mat-option>
+              } @else {
+                @for (teacher of coordinators; track teacher.teacherId || teacher.coordinatorId) {
+                  <mat-option [value]="teacher.teacherId || teacher.coordinatorId">
+                    {{teacher.name}} ({{teacher.email}})
+                    @if (teacher.coordinatorId) {
+                      <span style="color: #666; font-size: 0.9em;"> - Coordinador actual</span>
+                    }
+                  </mat-option>
+                }
+              }
+            </mat-select>
+            @if (teamForm.get('teacherId')?.hasError('required')) {
+              <mat-error>Debe seleccionar un docente coordinador</mat-error>
+            }
+          </mat-form-field>
+        }
       </form>
     </mat-dialog-content>
     <mat-dialog-actions>
@@ -96,8 +119,10 @@ import { AuthService } from '../../../core/services/auth.service';
 export class TeamDialogComponent implements OnInit {
   teamForm: FormGroup;
   investigationAreas: any[] = [];
+  coordinators: any[] = [];
   loading = false;
   loadingAreas = false;
+  loadingCoordinators = false;
 
   constructor(
     private fb: FormBuilder,
@@ -106,11 +131,17 @@ export class TeamDialogComponent implements OnInit {
     private apiService: ApiService,
     public authService: AuthService
   ) {
+    const coordinatorIdValidators = this.authService.hasRole('ADMINISTRADOR') 
+      ? [Validators.required] 
+      : [];
+
     this.teamForm = this.fb.group({
       name: ['', [Validators.required]],
       teamEmail: ['', [Validators.required, Validators.email]],
       areaId: ['', [Validators.required]],
-      description: ['', [Validators.required]]
+      description: ['', [Validators.required]],
+      coordinatorId: [null, coordinatorIdValidators],
+      teacherId: [null, coordinatorIdValidators]
     });
   }
 
@@ -128,7 +159,8 @@ export class TeamDialogComponent implements OnInit {
             name: this.data.team.name,
             teamEmail: this.data.team.teamEmail,
             areaId: this.data.team.areaId,
-            description: this.data.team.description
+            description: this.data.team.description,
+            coordinatorId: this.data.team.coordinatorId
           });
         }
       },
@@ -137,6 +169,33 @@ export class TeamDialogComponent implements OnInit {
         this.loadingAreas = false;
       }
     });
+
+    // Si es administrador, cargar docentes disponibles (que no son coordinadores o el coordinador actual)
+    // Si se está editando un equipo, excluir ese equipo para incluir su coordinador actual
+    if (this.authService.hasRole('ADMINISTRADOR')) {
+      this.loadingCoordinators = true;
+      const excludeTeamId = this.data?.team?.investigationTeamId;
+      this.apiService.getAvailableTeachers(excludeTeamId).subscribe({
+        next: (teachers: any[]) => {
+          this.coordinators = teachers;
+          this.loadingCoordinators = false;
+          
+          // Si se está editando y hay coordinador actual, establecer el teacherId
+          if (this.data?.team?.coordinatorId) {
+            const currentCoordinator = teachers.find(t => t.coordinatorId === this.data.team.coordinatorId);
+            if (currentCoordinator) {
+              this.teamForm.patchValue({
+                teacherId: currentCoordinator.teacherId || currentCoordinator.coordinatorId
+              });
+            }
+          }
+        },
+        error: (error: any) => {
+          console.error('Error loading teachers:', error);
+          this.loadingCoordinators = false;
+        }
+      });
+    }
   }
 
   onCancel(): void {
@@ -147,12 +206,24 @@ export class TeamDialogComponent implements OnInit {
     if (this.teamForm.valid) {
       const formValue = this.teamForm.value;
       // Asegurar que areaId sea un número
-      const teamData = {
+      const teamData: any = {
         name: formValue.name,
         teamEmail: formValue.teamEmail,
         description: formValue.description,
         areaId: parseInt(formValue.areaId, 10)
       };
+      
+      // Si es administrador, incluir el docente seleccionado (obligatorio)
+      // El backend se encargará de crear el coordinador si no existe
+      if (this.authService.hasRole('ADMINISTRADOR')) {
+        if (!formValue.teacherId) {
+          // Esto no debería pasar porque el campo es requerido, pero por seguridad
+          console.error('El docente coordinador es obligatorio para administradores');
+          return;
+        }
+        teamData.teacherId = parseInt(formValue.teacherId, 10);
+      }
+      
       this.dialogRef.close(teamData);
     }
   }

@@ -15,14 +15,15 @@ const createApplication = async (applicationData, userEmail) => {
 
   const userId = userResult.rows[0].user_id;
 
-  // Verificar que el usuario sea estudiante
+  // Verificar que el usuario sea estudiante o docente
   const userRoleResult = await pool.query(
     'SELECT role FROM app_user WHERE user_id = $1',
     [userId]
   );
 
-  if (userRoleResult.rows[0].role !== 'ESTUDIANTE') {
-    throw new Error('Solo los estudiantes pueden aplicar a equipos');
+  const userRole = userRoleResult.rows[0].role;
+  if (userRole !== 'ESTUDIANTE' && userRole !== 'DOCENTE') {
+    throw new Error('Solo los estudiantes y docentes pueden aplicar a equipos');
   }
 
   const result = await pool.query(
@@ -72,6 +73,7 @@ const getApplicationsByTeam = async (teamId) => {
       a.answer_message as "answerMessage",
       u.name as "userName",
       u.email as "userEmail",
+      u.role as "userRole",
       it.name as "teamName"
     FROM Application a
     INNER JOIN app_user u ON a.user_id = u.user_id

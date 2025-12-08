@@ -5,7 +5,10 @@ import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { ApiService } from '../../../core/services/api.service';
+import { UserDialogComponent } from '../../../shared/components/user-dialog/user-dialog.component';
 
 @Component({
   selector: 'app-users',
@@ -16,11 +19,19 @@ import { ApiService } from '../../../core/services/api.service';
     MatTableModule,
     MatButtonModule,
     MatIconModule,
-    MatChipsModule
+    MatChipsModule,
+    MatDialogModule,
+    MatSnackBarModule
   ],
   template: `
     <div class="users-container">
-      <h1>Gestión de Usuarios</h1>
+      <div class="header">
+        <h1>Gestión de Usuarios</h1>
+        <button mat-raised-button color="primary" (click)="createUser()">
+          <mat-icon>add</mat-icon>
+          Crear Usuario
+        </button>
+      </div>
       
       <mat-card>
         <table mat-table [dataSource]="users" class="users-table">
@@ -66,6 +77,13 @@ import { ApiService } from '../../../core/services/api.service';
       padding: 32px 24px;
     }
     
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    
     .users-table {
       width: 100%;
     }
@@ -75,7 +93,11 @@ export class UsersComponent implements OnInit {
   users: any[] = [];
   displayedColumns: string[] = ['name', 'email', 'role', 'actions'];
 
-  constructor(private apiService: ApiService) {}
+  constructor(
+    private apiService: ApiService,
+    private dialog: MatDialog,
+    private snackBar: MatSnackBar
+  ) {}
 
   ngOnInit(): void {
     this.loadUsers();
@@ -90,8 +112,84 @@ export class UsersComponent implements OnInit {
     });
   }
 
+  createUser(): void {
+    console.log('createUser called');
+    try {
+      const dialogRef = this.dialog.open(UserDialogComponent, {
+        width: '600px',
+        data: {}
+      });
+
+      console.log('Dialog opened:', dialogRef);
+
+      dialogRef.afterClosed().subscribe(result => {
+        console.log('Dialog closed with result:', result);
+        if (result) {
+          this.apiService.createUser(result).subscribe({
+            next: () => {
+              this.snackBar.open('Usuario creado exitosamente', 'Cerrar', { duration: 3000 });
+              this.loadUsers();
+            },
+            error: (error) => {
+              console.error('Error creating user:', error);
+              this.snackBar.open(error.error?.message || 'Error al crear usuario', 'Cerrar', { duration: 3000 });
+            }
+          });
+        }
+      });
+    } catch (error) {
+      console.error('Error opening dialog:', error);
+      this.snackBar.open('Error al abrir el diálogo', 'Cerrar', { duration: 3000 });
+    }
+  }
+
   editUser(user: any): void {
-    // TODO: Implementar edición
+    console.log('editUser called with user:', user);
+    try {
+      const dialogRef = this.dialog.open(UserDialogComponent, {
+        width: '600px',
+        data: { user }
+      });
+
+      console.log('Dialog opened:', dialogRef);
+
+      dialogRef.afterClosed().subscribe(result => {
+        console.log('Dialog closed with result:', result);
+        if (result) {
+          if (result.user) {
+            // Actualizar usuario
+            this.apiService.updateUser(user.userId, result.user).subscribe({
+              next: () => {
+              // Si es coordinador y hay cambios en los equipos
+              if (result.coordinatorId && result.coordinatedTeamId) {
+                this.apiService.updateCoordinatorTeams(result.coordinatorId, result.coordinatedTeamId).subscribe({
+                  next: () => {
+                    this.snackBar.open('Usuario y grupo actualizados exitosamente', 'Cerrar', { duration: 3000 });
+                    this.loadUsers();
+                  },
+                  error: (error) => {
+                    console.error('Error updating coordinator team:', error);
+                    this.snackBar.open('Usuario actualizado pero error al actualizar grupo: ' + (error.error?.message || 'Error desconocido'), 'Cerrar', { duration: 5000 });
+                    this.loadUsers();
+                  }
+                });
+              } else {
+                this.snackBar.open('Usuario actualizado exitosamente', 'Cerrar', { duration: 3000 });
+                this.loadUsers();
+              }
+              },
+              error: (error) => {
+                console.error('Error updating user:', error);
+                this.snackBar.open(error.error?.message || 'Error al actualizar usuario', 'Cerrar', { duration: 3000 });
+              }
+            });
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error opening dialog:', error);
+      this.snackBar.open('Error al abrir el diálogo', 'Cerrar', { duration: 3000 });
+    }
   }
 
   deleteUser(user: any): void {

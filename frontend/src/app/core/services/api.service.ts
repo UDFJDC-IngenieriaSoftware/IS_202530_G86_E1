@@ -120,8 +120,35 @@ export class ApiService {
     return this.http.get<any>(`${API_URL}/users/${id}`);
   }
 
+  getUserWithCoordinatorInfo(id: number): Observable<any> {
+    return this.http.get<any>(`${API_URL}/users/${id}/coordinator-info`);
+  }
+
+  createUser(user: any): Observable<any> {
+    return this.http.post<any>(`${API_URL}/users`, user);
+  }
+
   updateUser(id: number, user: any): Observable<any> {
     return this.http.put<any>(`${API_URL}/users/${id}`, user);
+  }
+
+  updateCoordinatorTeams(coordinatorId: number, teamId: number): Observable<any> {
+    return this.http.put<any>(`${API_URL}/users/coordinator/${coordinatorId}/teams`, { teamId });
+  }
+
+  getTeamsWithoutCoordinator(coordinatorId?: number): Observable<any[]> {
+    const params = coordinatorId ? { params: { coordinatorId: coordinatorId.toString() } } : {};
+    return this.http.get<any[]>(`${API_URL}/users/teams-without-coordinator`, params);
+  }
+
+  getAllCoordinators(excludeTeamId?: number): Observable<any[]> {
+    const params = excludeTeamId ? { params: { excludeTeamId: excludeTeamId.toString() } } : {};
+    return this.http.get<any[]>(`${API_URL}/users/coordinators`, params);
+  }
+
+  getAvailableTeachers(excludeTeamId?: number): Observable<any[]> {
+    const params = excludeTeamId ? { params: { excludeTeamId: excludeTeamId.toString() } } : {};
+    return this.http.get<any[]>(`${API_URL}/users/available-teachers`, params);
   }
 
   deleteUser(id: number): Observable<void> {

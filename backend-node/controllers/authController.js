@@ -7,7 +7,7 @@ const validateRegister = [
     .isEmail().withMessage('El email debe tener un formato válido')
     .matches(/@udistrital\.edu\.co$/).withMessage('El email debe ser del dominio @udistrital.edu.co'),
   body('password').notEmpty().withMessage('La contraseña es obligatoria'),
-  body('role').isIn(['ESTUDIANTE', 'COORDINADOR', 'ADMINISTRADOR']).withMessage('Rol inválido'),
+  body('role').isIn(['ESTUDIANTE']).withMessage('Solo se pueden registrar estudiantes. Los docentes y coordinadores deben ser creados por un administrador.'),
 ];
 
 const validateLogin = [

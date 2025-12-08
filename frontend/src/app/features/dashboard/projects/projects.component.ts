@@ -12,6 +12,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatChipsModule } from '@angular/material/chips';
 import { ApiService } from '../../../core/services/api.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { ProjectDialogComponent } from '../../../shared/components/project-dialog/project-dialog.component';
 
 @Component({
@@ -35,10 +36,12 @@ import { ProjectDialogComponent } from '../../../shared/components/project-dialo
     <div class="projects-container">
       <div class="header">
         <h1>Proyectos de Investigación</h1>
-        <button mat-raised-button color="primary" (click)="createProject()">
-          <mat-icon>add</mat-icon>
-          Nuevo Proyecto
-        </button>
+        @if (authService.hasRole('COORDINADOR')) {
+          <button mat-raised-button color="primary" (click)="createProject()">
+            <mat-icon>add</mat-icon>
+            Nuevo Proyecto
+          </button>
+        }
       </div>
 
       <!-- Filtros y búsqueda -->
@@ -119,15 +122,33 @@ import { ProjectDialogComponent } from '../../../shared/components/project-dialo
               <td mat-cell *matCellDef="let project">{{getStateLabel(project.state)}}</td>
             </ng-container>
 
+            <ng-container matColumnDef="document">
+              <th mat-header-cell *matHeaderCellDef>Ubicación</th>
+              <td mat-cell *matCellDef="let project">
+                @if (project.document) {
+                  <a [href]="project.document" target="_blank" rel="noopener noreferrer" class="document-link">
+                    <mat-icon>link</mat-icon>
+                    Ver documento
+                  </a>
+                } @else {
+                  <span class="no-document">Sin enlace</span>
+                }
+              </td>
+            </ng-container>
+
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef>Acciones</th>
               <td mat-cell *matCellDef="let project">
-                <button mat-icon-button (click)="editProject(project)">
-                  <mat-icon>edit</mat-icon>
-                </button>
-                <button mat-icon-button (click)="deleteProject(project)">
-                  <mat-icon>delete</mat-icon>
-                </button>
+                @if (authService.hasRole('COORDINADOR')) {
+                  <button mat-icon-button (click)="editProject(project)">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button (click)="deleteProject(project)">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                } @else {
+                  <span class="no-actions">Solo lectura</span>
+                }
               </td>
             </ng-container>
 
@@ -199,12 +220,42 @@ import { ProjectDialogComponent } from '../../../shared/components/project-dialo
       background-color: #e3f2fd;
       color: #1976d2;
     }
+    
+    .no-actions {
+      color: #999;
+      font-style: italic;
+      font-size: 0.9rem;
+    }
+    
+    .document-link {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: #2196f3;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    
+    .document-link:hover {
+      text-decoration: underline;
+    }
+    
+    .document-link mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+    
+    .no-document {
+      color: #999;
+      font-style: italic;
+    }
   `]
 })
 export class ProjectsComponent implements OnInit {
   projects: any[] = [];
   filteredProjects: any[] = [];
-  displayedColumns: string[] = ['title', 'teamName', 'productTypeName', 'state', 'actions'];
+  displayedColumns: string[] = ['title', 'teamName', 'productTypeName', 'state', 'document', 'actions'];
   
   // Filtros
   searchText: string = '';
@@ -219,7 +270,8 @@ export class ProjectsComponent implements OnInit {
   constructor(
     private apiService: ApiService,
     private dialog: MatDialog,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    public authService: AuthService
   ) {}
 
   ngOnInit(): void {

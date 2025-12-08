@@ -32,8 +32,12 @@ import { TeamDialogComponent } from '../../../shared/components/team-dialog/team
   template: `
     <div class="my-teams-container">
       <div class="header">
-        <h1>Mis Grupos de Investigación</h1>
         @if (authService.hasRole('ADMINISTRADOR')) {
+          <h1>Grupos de Investigación</h1>
+        } @else {
+          <h1>Mis Grupos de Investigación</h1>
+        }
+        @if (authService.hasRole('ADMINISTRADOR') || authService.hasRole('COORDINADOR')) {
           <button mat-raised-button color="primary" (click)="createTeam()">
             <mat-icon>add</mat-icon>
             Crear Grupo
@@ -52,6 +56,17 @@ import { TeamDialogComponent } from '../../../shared/components/team-dialog/team
               <mat-card-content>
                 <p>{{team.description}}</p>
                 
+                @if (authService.hasRole('ADMINISTRADOR')) {
+                  <div class="coordinator-info">
+                    <mat-icon>person</mat-icon>
+                    @if (team.coordinatorName) {
+                      <span><strong>Coordinador:</strong> {{team.coordinatorName}} ({{team.coordinatorEmail}})</span>
+                    } @else {
+                      <span><strong>Coordinador:</strong> <em>Sin asignar</em></span>
+                    }
+                  </div>
+                }
+                
                 <mat-expansion-panel class="applications-panel">
                   <mat-expansion-panel-header>
                     <mat-panel-title>
@@ -66,8 +81,20 @@ import { TeamDialogComponent } from '../../../shared/components/team-dialog/team
                   @if (teamApplications[team.investigationTeamId] && teamApplications[team.investigationTeamId].length > 0) {
                     <table mat-table [dataSource]="teamApplications[team.investigationTeamId]!" class="applications-table">
                       <ng-container matColumnDef="userName">
-                        <th mat-header-cell *matHeaderCellDef>Estudiante</th>
+                        <th mat-header-cell *matHeaderCellDef>Nombre</th>
                         <td mat-cell *matCellDef="let app">{{app.userName}}</td>
+                      </ng-container>
+
+                      <ng-container matColumnDef="userRole">
+                        <th mat-header-cell *matHeaderCellDef>Rol</th>
+                        <td mat-cell *matCellDef="let app">
+                          <mat-chip 
+                            [class]="'role-' + (app.userRole || 'ESTUDIANTE').toLowerCase()"
+                            [style.background-color]="getRoleColor(app.userRole || 'ESTUDIANTE')"
+                            [style.color]="'white'">
+                            {{getRoleLabel(app.userRole || 'ESTUDIANTE')}}
+                          </mat-chip>
+                        </td>
                       </ng-container>
 
                       <ng-container matColumnDef="userEmail">
@@ -97,20 +124,31 @@ import { TeamDialogComponent } from '../../../shared/components/team-dialog/team
                       <ng-container matColumnDef="actions">
                         <th mat-header-cell *matHeaderCellDef>Acciones</th>
                         <td mat-cell *matCellDef="let app">
-                          @if (app.state === 'PENDIENTE') {
-                            <button mat-button color="primary" (click)="respondApplication(app, 'APROBADA')">
-                              <mat-icon>check</mat-icon>
-                              Aprobar
-                            </button>
-                            <button mat-button color="warn" (click)="respondApplication(app, 'RECHAZADA')">
-                              <mat-icon>close</mat-icon>
-                              Rechazar
-                            </button>
+                          @if (!authService.hasRole('ADMINISTRADOR')) {
+                            @if (app.state === 'PENDIENTE') {
+                              <button mat-button color="primary" (click)="respondApplication(app, 'APROBADA')">
+                                <mat-icon>check</mat-icon>
+                                Aprobar
+                              </button>
+                              <button mat-button color="warn" (click)="respondApplication(app, 'RECHAZADA')">
+                                <mat-icon>close</mat-icon>
+                                Rechazar
+                              </button>
+                            } @else {
+                              <span class="answer-info">
+                                @if (app.answerMessage) {
+                                  <mat-icon>info</mat-icon>
+                                  Respondido: {{app.answerMessage}}
+                                }
+                              </span>
+                            }
                           } @else {
                             <span class="answer-info">
                               @if (app.answerMessage) {
                                 <mat-icon>info</mat-icon>
                                 Respondido: {{app.answerMessage}}
+                              } @else {
+                                <span class="no-answer">Solo lectura</span>
                               }
                             </span>
                           }
@@ -127,14 +165,22 @@ import { TeamDialogComponent } from '../../../shared/components/team-dialog/team
               </mat-card-content>
               <mat-card-actions>
                 <button mat-button [routerLink]="['/teams', team.investigationTeamId]">Ver Detalles</button>
-                <button mat-button (click)="editTeam(team)">Editar</button>
+                @if (authService.hasRole('ADMINISTRADOR')) {
+                  <button mat-button (click)="editTeam(team)">Editar</button>
+                } @else {
+                  <button mat-button (click)="editTeam(team)">Editar</button>
+                }
               </mat-card-actions>
             </mat-card>
           }
         </div>
       } @else {
         <mat-card>
-          <p class="no-teams">No tienes grupos registrados</p>
+          @if (authService.hasRole('ADMINISTRADOR')) {
+            <p class="no-teams">No hay grupos registrados</p>
+          } @else {
+            <p class="no-teams">No tienes grupos registrados</p>
+          }
         </mat-card>
       }
     </div>
@@ -221,12 +267,80 @@ import { TeamDialogComponent } from '../../../shared/components/team-dialog/team
       color: #666;
       font-size: 0.9rem;
     }
+    
+    .no-answer {
+      color: #999;
+      font-style: italic;
+      font-size: 0.9rem;
+    }
+    
+    .role-estudiante {
+      background-color: #4caf50 !important;
+      color: white !important;
+    }
+    
+    .role-docente {
+      background-color: #2196f3 !important;
+      color: white !important;
+    }
+    
+    .role-coordinador {
+      background-color: #ff9800 !important;
+      color: white !important;
+    }
+    
+    .role-administrador {
+      background-color: #9c27b0 !important;
+      color: white !important;
+    }
+    
+    ::ng-deep .role-estudiante {
+      background-color: #4caf50 !important;
+      color: white !important;
+    }
+    
+    ::ng-deep .role-docente {
+      background-color: #2196f3 !important;
+      color: white !important;
+    }
+    
+    ::ng-deep .role-coordinador {
+      background-color: #ff9800 !important;
+      color: white !important;
+    }
+    
+    ::ng-deep .role-administrador {
+      background-color: #9c27b0 !important;
+      color: white !important;
+    }
+    
+    .coordinator-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+      padding: 12px;
+      background-color: #f5f5f5;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+    
+    .coordinator-info mat-icon {
+      color: var(--primary-blue);
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+    
+    .coordinator-info strong {
+      color: var(--primary-black);
+    }
   `]
 })
 export class MyTeamsComponent implements OnInit {
   teams: any[] = [];
   teamApplications: { [key: number]: any[] } = {};
-  displayedColumns: string[] = ['userName', 'userEmail', 'applicationDate', 'state', 'message', 'actions'];
+  displayedColumns: string[] = ['userName', 'userRole', 'userEmail', 'applicationDate', 'state', 'message', 'actions'];
   loading = false;
 
   constructor(
@@ -242,14 +356,22 @@ export class MyTeamsComponent implements OnInit {
 
   loadTeams(): void {
     console.log('MyTeamsComponent - Loading teams...');
-    this.apiService.getMyTeams().subscribe({
+    // Si es administrador, cargar todos los grupos; si no, cargar solo los que coordina
+    const teamsObservable = this.authService.hasRole('ADMINISTRADOR') 
+      ? this.apiService.getTeams() 
+      : this.apiService.getMyTeams();
+    
+    teamsObservable.subscribe({
       next: (teams: any[]) => {
         console.log('MyTeamsComponent - Teams received:', teams);
         console.log('MyTeamsComponent - Teams count:', teams.length);
         this.teams = teams || [];
-        // Cargar solicitudes para cada equipo
+        // Cargar solicitudes para cada equipo (solo si no es administrador o si el equipo tiene coordinador)
         teams.forEach((team: any) => {
-          this.loadApplicationsForTeam(team.investigationTeamId);
+          // Los administradores pueden ver las solicitudes pero no responderlas
+          if (!this.authService.hasRole('ADMINISTRADOR') || team.coordinatorId) {
+            this.loadApplicationsForTeam(team.investigationTeamId);
+          }
         });
       },
       error: (error: any) => {
@@ -287,6 +409,26 @@ export class MyTeamsComponent implements OnInit {
     return labels[state] || state;
   }
 
+  getRoleLabel(role: string): string {
+    const labels: { [key: string]: string } = {
+      'ESTUDIANTE': 'Estudiante',
+      'DOCENTE': 'Docente',
+      'COORDINADOR': 'Coordinador',
+      'ADMINISTRADOR': 'Administrador'
+    };
+    return labels[role] || role;
+  }
+
+  getRoleColor(role: string): string {
+    const colors: { [key: string]: string } = {
+      'ESTUDIANTE': '#4caf50',
+      'DOCENTE': '#2196f3',
+      'COORDINADOR': '#ff9800',
+      'ADMINISTRADOR': '#9c27b0'
+    };
+    return colors[role] || '#757575';
+  }
+
   respondApplication(application: any, newState: string): void {
     const dialogRef = this.dialog.open(ApplicationResponseDialogComponent, {
       width: '500px',
@@ -322,8 +464,29 @@ export class MyTeamsComponent implements OnInit {
   }
 
   createTeam(): void {
-    // TODO: Implementar diálogo de creación
-    this.snackBar.open('Funcionalidad en desarrollo', 'Cerrar', { duration: 2000 });
+    const dialogRef = this.dialog.open(TeamDialogComponent, {
+      width: '600px',
+      data: {}
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.loading = true;
+        this.apiService.createTeam(result).subscribe({
+          next: () => {
+            this.snackBar.open('Grupo creado exitosamente', 'Cerrar', { duration: 3000 });
+            this.loading = false;
+            this.loadTeams(); // Recargar la lista
+          },
+          error: (error) => {
+            console.error('Error creating team:', error);
+            const errorMessage = error.error?.message || 'Error al crear el grupo';
+            this.snackBar.open(errorMessage, 'Cerrar', { duration: 3000 });
+            this.loading = false;
+          }
+        });
+      }
+    });
   }
 
   editTeam(team: any): void {

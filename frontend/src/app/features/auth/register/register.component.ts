@@ -58,11 +58,10 @@ import { ApiService } from '../../../core/services/api.service';
               }
             </mat-form-field>
 
-            <mat-form-field appearance="fill" class="full-width form-field-light-blue">
+            <mat-form-field appearance="fill" class="full-width form-field-light-blue" style="display: none;">
               <mat-label style="display: none;"></mat-label>
               <mat-select formControlName="role" placeholder="Estudiante">
                 <mat-option value="ESTUDIANTE">Estudiante</mat-option>
-                <mat-option value="COORDINADOR">Coordinador</mat-option>
               </mat-select>
               <mat-icon matPrefix>badge</mat-icon>
             </mat-form-field>

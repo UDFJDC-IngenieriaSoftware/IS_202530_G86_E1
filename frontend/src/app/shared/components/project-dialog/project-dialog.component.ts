@@ -90,6 +90,15 @@ import { ApiService } from '../../../core/services/api.service';
             <mat-error>El estado es obligatorio</mat-error>
           }
         </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Ubicación (Link de documento/carpeta)</mat-label>
+          <input matInput formControlName="document" placeholder="https://drive.google.com/... o link de almacenamiento">
+          <mat-hint>Pega aquí el link de Google Drive, OneDrive u otro servicio de almacenamiento</mat-hint>
+          @if (projectForm.get('document')?.hasError('pattern')) {
+            <mat-error>Debe ser una URL válida</mat-error>
+          }
+        </mat-form-field>
       </form>
     </mat-dialog-content>
     <mat-dialog-actions>
@@ -132,7 +141,8 @@ export class ProjectDialogComponent implements OnInit {
       title: ['', [Validators.required]],
       resume: ['', [Validators.required]],
       state: [1, [Validators.required]],
-      productTypeId: ['', [Validators.required]]
+      productTypeId: ['', [Validators.required]],
+      document: ['']
     });
   }
 
@@ -180,7 +190,8 @@ export class ProjectDialogComponent implements OnInit {
             title: this.data.project.title,
             resume: this.data.project.resume,
             state: this.data.project.state,
-            productTypeId: this.data.project.productTypeId || ''
+            productTypeId: this.data.project.productTypeId || '',
+            document: this.data.project.document || ''
           });
         }
       },
@@ -212,7 +223,8 @@ export class ProjectDialogComponent implements OnInit {
         title: formValue.title,
         resume: formValue.resume,
         state: parseInt(formValue.state, 10),
-        productTypeId: parseInt(formValue.productTypeId, 10)
+        productTypeId: parseInt(formValue.productTypeId, 10),
+        document: formValue.document || ''
       };
       this.dialogRef.close(projectData);
     }

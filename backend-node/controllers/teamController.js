@@ -48,6 +48,25 @@ const getMyTeams = async (req, res) => {
 
 const createTeam = async (req, res) => {
   try {
+    const userId = req.user.userId;
+    const userRole = req.user.role;
+    const { coordinatorId, teacherId } = req.body;
+
+    // Si es coordinador, asignarse automáticamente como coordinador
+    if (userRole === 'COORDINADOR') {
+      // Obtener el coordinatorId del usuario actual
+      const userCoordinator = await teamService.getCoordinatorIdByUserId(userId);
+      if (!userCoordinator) {
+        return res.status(400).json({ message: 'El usuario no es un coordinador válido' });
+      }
+      req.body.coordinatorId = userCoordinator;
+    } else if (userRole === 'ADMINISTRADOR') {
+      // Los administradores deben proporcionar un docente (teacherId) o coordinador existente
+      if (!teacherId && !coordinatorId) {
+        return res.status(400).json({ message: 'Debe seleccionar un docente coordinador para el grupo' });
+      }
+    }
+
     const team = await teamService.createTeam(req.body);
     res.status(201).json(team);
   } catch (error) {
@@ -80,7 +99,9 @@ const updateTeam = async (req, res) => {
       name: name.trim(),
       teamEmail: teamEmail.trim(),
       description: description.trim(),
-      areaId: parseInt(areaId, 10)
+      areaId: parseInt(areaId, 10),
+      teacherId: req.body.teacherId ? parseInt(req.body.teacherId, 10) : undefined,
+      coordinatorId: req.body.coordinatorId ? parseInt(req.body.coordinatorId, 10) : undefined
     };
     
     // Validar que areaId sea un número válido
