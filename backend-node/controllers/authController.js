@@ -46,7 +46,6 @@ const login = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.log('❌ Errores de validación:', errors.array());
       return res.status(400).json({ 
         message: errors.array()[0].msg,
         token: null,
@@ -57,12 +56,10 @@ const login = async (req, res) => {
     }
 
     const { email, password } = req.body;
-    console.log('📧 Email recibido:', email);
-    console.log('🔑 Password recibido:', password ? '***' : 'vacío');
     const response = await authService.login(email, password);
     res.json(response);
   } catch (error) {
-    console.error('❌ Login error:', error.message);
+    console.error('Login error:', error);
     res.status(401).json({
       message: 'Credenciales inválidas',
       token: null,

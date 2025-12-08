@@ -160,33 +160,25 @@ async function seed() {
       SELECT investigation_team_id FROM Investigation_team ORDER BY investigation_team_id LIMIT 3
     `);
     
-    // Actualizar Teachers (queries separadas)
-    await client.query(
-      'UPDATE Teacher SET team_id = $1 WHERE teacher_id = 1',
-      [teams.rows[0].investigation_team_id]
-    );
-    await client.query(
-      'UPDATE Teacher SET team_id = $1 WHERE teacher_id = 2',
-      [teams.rows[1].investigation_team_id]
-    );
-    await client.query(
-      'UPDATE Teacher SET team_id = $1 WHERE teacher_id = 3',
-      [teams.rows[2].investigation_team_id]
-    );
+    await client.query(`
+      UPDATE Teacher SET team_id = $1 WHERE teacher_id = 1;
+      UPDATE Teacher SET team_id = $2 WHERE teacher_id = 2;
+      UPDATE Teacher SET team_id = $3 WHERE teacher_id = 3;
+    `, [
+      teams.rows[0].investigation_team_id,
+      teams.rows[1].investigation_team_id,
+      teams.rows[2].investigation_team_id
+    ]);
     
-    // Actualizar Students (queries separadas)
-    await client.query(
-      'UPDATE Student SET team_id = $1 WHERE student_id IN (1, 2, 3)',
-      [teams.rows[0].investigation_team_id]
-    );
-    await client.query(
-      'UPDATE Student SET team_id = $1 WHERE student_id IN (4, 5, 6)',
-      [teams.rows[1].investigation_team_id]
-    );
-    await client.query(
-      'UPDATE Student SET team_id = $1 WHERE student_id IN (7, 8, 9)',
-      [teams.rows[2].investigation_team_id]
-    );
+    await client.query(`
+      UPDATE Student SET team_id = $1 WHERE student_id IN (1, 2, 3);
+      UPDATE Student SET team_id = $2 WHERE student_id IN (4, 5, 6);
+      UPDATE Student SET team_id = $3 WHERE student_id IN (7, 8, 9);
+    `, [
+      teams.rows[0].investigation_team_id,
+      teams.rows[1].investigation_team_id,
+      teams.rows[2].investigation_team_id
+    ]);
     console.log('✅ Teacher y Student actualizados\n');
 
     // 8. Investigation_project (depende de Investigation_team)
@@ -241,36 +233,38 @@ async function seed() {
     const prototipo = productTypes.rows[4].product_type_id; // Prototipo
     const informe = productTypes.rows[5].product_type_id; // Informe
     
-    // Insertar productos uno por uno para evitar problemas con parámetros
-    const productInserts = [
-      { project: 0, type: articulo, title: 'Artículo: Reconocimiento Facial con CNN', doc: 'articulo_cnn_2024.pdf', date: '2024-01-15' },
-      { project: 0, type: software, title: 'Software: Sistema de Reconocimiento', doc: 'software_reconocimiento_v1.0.zip', date: '2024-02-20' },
-      { project: 1, type: articulo, title: 'Artículo: Chatbot con NLP', doc: 'articulo_chatbot_nlp.pdf', date: '2024-03-10' },
-      { project: 2, type: patente, title: 'Patente: Algoritmo Predictivo', doc: 'patente_algoritmo_2024.pdf', date: '2024-04-05' },
-      { project: 3, type: articulo, title: 'Artículo: Optimización de Rutas', doc: 'articulo_rutas_2024.pdf', date: '2024-01-25' },
-      { project: 3, type: prototipo, title: 'Prototipo: Sistema de Rutas', doc: 'prototipo_rutas_v1.0.zip', date: '2024-02-15' },
-      { project: 4, type: software, title: 'Software: Gestión de Inventarios', doc: 'software_inventarios_v2.0.zip', date: '2024-03-20' },
-      { project: 5, type: informe, title: 'Informe: Eficiencia Energética', doc: 'informe_energia_2024.pdf', date: '2024-04-10' },
-      { project: 6, type: articulo, title: 'Artículo: Series Temporales', doc: 'articulo_series_2024.pdf', date: '2024-01-30' },
-      { project: 6, type: software, title: 'Software: Análisis de Series', doc: 'software_series_v1.5.zip', date: '2024-02-25' },
-      { project: 7, type: articulo, title: 'Artículo: Big Data con Hadoop', doc: 'articulo_bigdata_2024.pdf', date: '2024-03-15' },
-      { project: 8, type: software, title: 'Software: Sistema de Recomendación', doc: 'software_recomendacion_v1.0.zip', date: '2024-04-20' }
-    ];
-    
-    for (const product of productInserts) {
-      await client.query(
-        `INSERT INTO Product (investigation_project_id, type_product_id, title, document, public_date)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT DO NOTHING`,
-        [
-          projects.rows[product.project].investigation_project_id,
-          product.type,
-          product.title,
-          product.doc,
-          product.date
-        ]
-      );
-    }
+    await client.query(`
+      INSERT INTO Product (investigation_project_id, type_product_id, title, document, public_date) VALUES
+      ($1, $10, 'Artículo: Reconocimiento Facial con CNN', 'articulo_cnn_2024.pdf', '2024-01-15'),
+      ($1, $12, 'Software: Sistema de Reconocimiento', 'software_reconocimiento_v1.0.zip', '2024-02-20'),
+      ($2, $10, 'Artículo: Chatbot con NLP', 'articulo_chatbot_nlp.pdf', '2024-03-10'),
+      ($3, $13, 'Patente: Algoritmo Predictivo', 'patente_algoritmo_2024.pdf', '2024-04-05'),
+      ($4, $10, 'Artículo: Optimización de Rutas', 'articulo_rutas_2024.pdf', '2024-01-25'),
+      ($4, $14, 'Prototipo: Sistema de Rutas', 'prototipo_rutas_v1.0.zip', '2024-02-15'),
+      ($5, $12, 'Software: Gestión de Inventarios', 'software_inventarios_v2.0.zip', '2024-03-20'),
+      ($6, $15, 'Informe: Eficiencia Energética', 'informe_energia_2024.pdf', '2024-04-10'),
+      ($7, $10, 'Artículo: Series Temporales', 'articulo_series_2024.pdf', '2024-01-30'),
+      ($7, $12, 'Software: Análisis de Series', 'software_series_v1.5.zip', '2024-02-25'),
+      ($8, $10, 'Artículo: Big Data con Hadoop', 'articulo_bigdata_2024.pdf', '2024-03-15'),
+      ($9, $12, 'Software: Sistema de Recomendación', 'software_recomendacion_v1.0.zip', '2024-04-20')
+      ON CONFLICT DO NOTHING
+    `, [
+      projects.rows[0].investigation_project_id,
+      projects.rows[1].investigation_project_id,
+      projects.rows[2].investigation_project_id,
+      projects.rows[3].investigation_project_id,
+      projects.rows[4].investigation_project_id,
+      projects.rows[5].investigation_project_id,
+      projects.rows[6].investigation_project_id,
+      projects.rows[7].investigation_project_id,
+      projects.rows[8].investigation_project_id,
+      articulo,    // $10
+      libro,       // $11 (no usado)
+      software,    // $12
+      patente,     // $13
+      prototipo,   // $14
+      informe      // $15
+    ]);
     console.log('✅ Product insertado\n');
 
     // 11. Product_student (depende de Product y Student)

@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 const API_URL = 'http://localhost:8081/api';
 
@@ -13,6 +14,10 @@ export class ApiService {
   // Teams
   getTeams(): Observable<any[]> {
     return this.http.get<any[]>(`${API_URL}/teams/public`);
+  }
+
+  getMyTeams(): Observable<any[]> {
+    return this.http.get<any[]>(`${API_URL}/teams/my-teams`);
   }
 
   getTeamById(id: number): Observable<any> {
@@ -67,6 +72,18 @@ export class ApiService {
 
   getMyApplications(): Observable<any[]> {
     return this.http.get<any[]>(`${API_URL}/applications/my-applications`);
+  }
+
+  getMyApplicationByTeam(teamId: number): Observable<any> {
+    return this.http.get<any>(`${API_URL}/applications/my-application/team/${teamId}`).pipe(
+      catchError(error => {
+        // Si es 404 o el error indica que no hay aplicación, devolver null
+        if (error.status === 404 || error.status === 500) {
+          return of(null);
+        }
+        throw error;
+      })
+    );
   }
 
   getApplicationsByTeam(teamId: number): Observable<any[]> {

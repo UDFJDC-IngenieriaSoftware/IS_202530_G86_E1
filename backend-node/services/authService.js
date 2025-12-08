@@ -109,8 +109,6 @@ const register = async (registerData) => {
 };
 
 const login = async (email, password) => {
-  console.log('🔐 Intentando login para:', email);
-  
   // Buscar usuario
   const userResult = await pool.query(
     'SELECT user_id, name, email, password, role FROM app_user WHERE email = $1',
@@ -118,24 +116,19 @@ const login = async (email, password) => {
   );
 
   if (userResult.rows.length === 0) {
-    console.log('❌ Usuario no encontrado:', email);
     throw new Error('Credenciales inválidas');
   }
 
   const user = userResult.rows[0];
-  console.log('✅ Usuario encontrado:', user.email);
 
   // Verificar contraseña
   const isValidPassword = await bcrypt.compare(password, user.password);
-  console.log('🔑 Verificación de contraseña:', isValidPassword);
 
   if (!isValidPassword) {
-    console.log('❌ Contraseña inválida para:', email);
     throw new Error('Credenciales inválidas');
   }
 
   const token = generateToken(user);
-  console.log('✅ Login exitoso para:', email);
 
   return {
     token,
