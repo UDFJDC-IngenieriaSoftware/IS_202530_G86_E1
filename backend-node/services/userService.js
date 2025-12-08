@@ -43,7 +43,28 @@ const getUserById = async (userId) => {
     throw new Error('Usuario no encontrado');
   }
 
-  return result.rows[0];
+  const user = result.rows[0];
+
+  // Si el usuario es coordinador, verificar si tiene equipos asignados
+  if (user.role === 'COORDINADOR' && user.coordinatorId) {
+    const teamsResult = await pool.query(
+      'SELECT investigation_team_id FROM Investigation_team WHERE cordinator_id = $1',
+      [user.coordinatorId]
+    );
+
+    // Si no tiene equipos, cambiar su rol a DOCENTE
+    if (teamsResult.rows.length === 0) {
+      console.log('getUserById - Coordinador sin equipos, cambiando rol a DOCENTE para user_id:', user.userId);
+      await pool.query(
+        'UPDATE app_user SET role = $1 WHERE user_id = $2',
+        ['DOCENTE', user.userId]
+      );
+      // Actualizar el rol en el objeto que se devolverá
+      user.role = 'DOCENTE';
+    }
+  }
+
+  return user;
 };
 
 const getUserByEmail = async (email) => {
@@ -54,11 +75,13 @@ const getUserByEmail = async (email) => {
       u.email,
       u.role,
       pa.proyect_area_id as "projectAreaId",
-      pa.name as "projectAreaName"
+      pa.name as "projectAreaName",
+      c.coordinator_id as "coordinatorId"
     FROM app_user u
     LEFT JOIN Student s ON u.user_id = s.user_id
     LEFT JOIN Teacher t ON u.user_id = t.user_id
     LEFT JOIN Project_area pa ON s.project_id = pa.proyect_area_id OR t.project_id = pa.proyect_area_id
+    LEFT JOIN Cordinator c ON t.teacher_id = c.teacher_id
     WHERE u.email = $1
   `, [email]);
 
@@ -66,7 +89,28 @@ const getUserByEmail = async (email) => {
     throw new Error('Usuario no encontrado');
   }
 
-  return result.rows[0];
+  const user = result.rows[0];
+
+  // Si el usuario es coordinador, verificar si tiene equipos asignados
+  if (user.role === 'COORDINADOR' && user.coordinatorId) {
+    const teamsResult = await pool.query(
+      'SELECT investigation_team_id FROM Investigation_team WHERE cordinator_id = $1',
+      [user.coordinatorId]
+    );
+
+    // Si no tiene equipos, cambiar su rol a DOCENTE
+    if (teamsResult.rows.length === 0) {
+      console.log('getUserByEmail - Coordinador sin equipos, cambiando rol a DOCENTE para user_id:', user.userId);
+      await pool.query(
+        'UPDATE app_user SET role = $1 WHERE user_id = $2',
+        ['DOCENTE', user.userId]
+      );
+      // Actualizar el rol en el objeto que se devolverá
+      user.role = 'DOCENTE';
+    }
+  }
+
+  return user;
 };
 
 const updateUser = async (userId, userData) => {

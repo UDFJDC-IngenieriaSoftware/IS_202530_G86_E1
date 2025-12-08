@@ -139,9 +139,21 @@ export class DashboardComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // Refrescar el usuario al cargar el dashboard para detectar cambios de rol
+    this.authService.refreshUser();
+    
+    // Suscribirse a cambios en el usuario para actualizar el dashboard automáticamente
     this.authService.currentUser$.subscribe(user => {
+      console.log('DashboardComponent - User updated:', user);
       this.user = user;
     });
+    
+    // Refrescar el usuario periódicamente para detectar cambios de rol (cada 5 segundos)
+    // Esto asegura que si un administrador asigna un docente como coordinador,
+    // el docente verá el cambio en su dashboard sin necesidad de refrescar la página
+    setInterval(() => {
+      this.authService.refreshUser();
+    }, 5000);
   }
 }
 

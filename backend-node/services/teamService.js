@@ -144,14 +144,25 @@ const getTeamsByCoordinator = async (userId) => {
     console.log('getTeamsByCoordinator - result.rows.length:', result.rows.length);
     console.log('getTeamsByCoordinator - result.rows:', JSON.stringify(result.rows, null, 2));
     
-    // Si no hay resultados, verificar que existen equipos para ese coordinador
-    if (result.rows.length === 0) {
-      const allTeams = await pool.query(`
-        SELECT it.investigation_team_id, it.name, it.cordinator_id, c.coordinator_id as c_coord_id
-        FROM Investigation_team it
-        LEFT JOIN Cordinator c ON it.cordinator_id = c.coordinator_id
-      `);
-      console.log('getTeamsByCoordinator - Todos los equipos:', JSON.stringify(allTeams.rows, null, 2));
+    // Si el coordinador no tiene equipos asignados, cambiar su rol a DOCENTE
+    if (result.rows.length === 0 && user.coordinator_id) {
+      console.log('getTeamsByCoordinator - Coordinador no tiene equipos, cambiando rol a DOCENTE');
+      // Obtener el user_id del coordinador
+      const coordinatorUser = await pool.query(`
+        SELECT u.user_id
+        FROM Cordinator c
+        INNER JOIN Teacher t ON c.teacher_id = t.teacher_id
+        INNER JOIN app_user u ON t.user_id = u.user_id
+        WHERE c.coordinator_id = $1
+      `, [user.coordinator_id]);
+
+      if (coordinatorUser.rows.length > 0) {
+        await pool.query(
+          'UPDATE app_user SET role = $1 WHERE user_id = $2',
+          ['DOCENTE', coordinatorUser.rows[0].user_id]
+        );
+        console.log('getTeamsByCoordinator - Cambiado rol a DOCENTE para user_id:', coordinatorUser.rows[0].user_id);
+      }
     }
     
     return result.rows;
@@ -227,6 +238,11 @@ const createTeam = async (teamData) => {
 
       if (existingCoordinator.rows.length > 0) {
         finalCoordinatorId = existingCoordinator.rows[0].coordinator_id;
+        // Asegurarse de que el rol sea COORDINADOR (por si acaso fue degradado antes)
+        await client.query(
+          'UPDATE app_user SET role = $1 WHERE user_id = $2',
+          ['COORDINADOR', teacher.user_id]
+        );
       } else {
         // Crear nuevo coordinador
         const coordinatorIdResult = await client.query(
@@ -357,6 +373,11 @@ const updateTeam = async (teamId, teamData, preserveCoordinator = false) => {
 
         if (existingCoordinator.rows.length > 0) {
           finalCoordinatorId = existingCoordinator.rows[0].coordinator_id;
+          // Asegurarse de que el rol sea COORDINADOR (por si acaso fue degradado antes)
+          await client.query(
+            'UPDATE app_user SET role = $1 WHERE user_id = $2',
+            ['COORDINADOR', teacher.user_id]
+          );
         } else {
           // Crear nuevo coordinador
           const coordinatorIdResult = await client.query(
@@ -377,6 +398,13 @@ const updateTeam = async (teamId, teamData, preserveCoordinator = false) => {
         }
       }
 
+      // Obtener el coordinador actual del equipo antes de cambiarlo
+      const currentTeamResult = await client.query(
+        'SELECT cordinator_id FROM Investigation_team WHERE investigation_team_id = $1',
+        [teamId]
+      );
+      const oldCoordinatorId = currentTeamResult.rows.length > 0 ? currentTeamResult.rows[0].cordinator_id : null;
+
       // Verificar que el coordinador no esté ya coordinando otro grupo
       // (excepto si es el mismo grupo que se está editando)
       const existingTeam = await client.query(
@@ -389,6 +417,8 @@ const updateTeam = async (teamId, teamData, preserveCoordinator = false) => {
       }
 
       console.log('updateTeam service - Updating with coordinator_id:', finalCoordinatorId);
+      console.log('updateTeam service - Old coordinator_id:', oldCoordinatorId);
+      
       const result = await client.query(
         `UPDATE Investigation_team 
          SET name = $1, team_email = $2, description = $3, area_id = $4, cordinator_id = $5
@@ -399,6 +429,55 @@ const updateTeam = async (teamId, teamData, preserveCoordinator = false) => {
 
       if (result.rows.length === 0) {
         throw new Error('Equipo no encontrado');
+      }
+
+      // Si se cambió el coordinador, verificar si el coordinador anterior ya no coordina ningún equipo
+      if (oldCoordinatorId && oldCoordinatorId !== finalCoordinatorId) {
+        const otherTeams = await client.query(
+          'SELECT investigation_team_id FROM Investigation_team WHERE cordinator_id = $1',
+          [oldCoordinatorId]
+        );
+
+        // Si el coordinador anterior no coordina ningún otro equipo, cambiar su rol a DOCENTE
+        if (otherTeams.rows.length === 0) {
+          console.log('updateTeam service - Old coordinator has no other teams, changing role to DOCENTE');
+          // Obtener el user_id del coordinador
+          const coordinatorUser = await client.query(`
+            SELECT u.user_id
+            FROM Cordinator c
+            INNER JOIN Teacher t ON c.teacher_id = t.teacher_id
+            INNER JOIN app_user u ON t.user_id = u.user_id
+            WHERE c.coordinator_id = $1
+          `, [oldCoordinatorId]);
+
+          if (coordinatorUser.rows.length > 0) {
+            await client.query(
+              'UPDATE app_user SET role = $1 WHERE user_id = $2',
+              ['DOCENTE', coordinatorUser.rows[0].user_id]
+            );
+            console.log('updateTeam service - Changed user role to DOCENTE for user_id:', coordinatorUser.rows[0].user_id);
+          }
+        }
+      }
+
+      // Asegurarse de que el nuevo coordinador tenga el rol COORDINADOR
+      if (finalCoordinatorId) {
+        const newCoordinatorUser = await client.query(`
+          SELECT u.user_id, u.role
+          FROM Cordinator c
+          INNER JOIN Teacher t ON c.teacher_id = t.teacher_id
+          INNER JOIN app_user u ON t.user_id = u.user_id
+          WHERE c.coordinator_id = $1
+        `, [finalCoordinatorId]);
+
+        if (newCoordinatorUser.rows.length > 0 && newCoordinatorUser.rows[0].role !== 'COORDINADOR') {
+          console.log('updateTeam service - New coordinator role is not COORDINADOR, updating to COORDINADOR');
+          await client.query(
+            'UPDATE app_user SET role = $1 WHERE user_id = $2',
+            ['COORDINADOR', newCoordinatorUser.rows[0].user_id]
+          );
+          console.log('updateTeam service - Changed user role to COORDINADOR for user_id:', newCoordinatorUser.rows[0].user_id);
+        }
       }
 
       await client.query('COMMIT');
@@ -438,13 +517,62 @@ const getTeamsByStudent = async (userId) => {
 };
 
 const deleteTeam = async (teamId) => {
-  const result = await pool.query(
-    'DELETE FROM Investigation_team WHERE investigation_team_id = $1 RETURNING investigation_team_id',
-    [teamId]
-  );
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  if (result.rows.length === 0) {
-    throw new Error('Equipo no encontrado');
+    // Obtener el coordinador del equipo antes de eliminarlo
+    const teamResult = await client.query(
+      'SELECT cordinator_id FROM Investigation_team WHERE investigation_team_id = $1',
+      [teamId]
+    );
+
+    if (teamResult.rows.length === 0) {
+      throw new Error('Equipo no encontrado');
+    }
+
+    const coordinatorId = teamResult.rows[0].cordinator_id;
+
+    // Eliminar el equipo
+    await client.query(
+      'DELETE FROM Investigation_team WHERE investigation_team_id = $1',
+      [teamId]
+    );
+
+    // Si el coordinador no coordina ningún otro equipo, cambiar su rol a DOCENTE
+    if (coordinatorId) {
+      const otherTeams = await client.query(
+        'SELECT investigation_team_id FROM Investigation_team WHERE cordinator_id = $1',
+        [coordinatorId]
+      );
+
+      if (otherTeams.rows.length === 0) {
+        console.log('deleteTeam - Coordinator has no other teams, changing role to DOCENTE');
+        // Obtener el user_id del coordinador
+        const coordinatorUser = await client.query(`
+          SELECT u.user_id
+          FROM Cordinator c
+          INNER JOIN Teacher t ON c.teacher_id = t.teacher_id
+          INNER JOIN app_user u ON t.user_id = u.user_id
+          WHERE c.coordinator_id = $1
+        `, [coordinatorId]);
+
+        if (coordinatorUser.rows.length > 0) {
+          await client.query(
+            'UPDATE app_user SET role = $1 WHERE user_id = $2',
+            ['DOCENTE', coordinatorUser.rows[0].user_id]
+          );
+          console.log('deleteTeam - Changed user role to DOCENTE for user_id:', coordinatorUser.rows[0].user_id);
+        }
+      }
+    }
+
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
   }
 };
 

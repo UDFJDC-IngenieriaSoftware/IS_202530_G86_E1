@@ -366,6 +366,7 @@ export class MyTeamsComponent implements OnInit {
         console.log('MyTeamsComponent - Teams received:', teams);
         console.log('MyTeamsComponent - Teams count:', teams.length);
         this.teams = teams || [];
+        
         // Cargar solicitudes para cada equipo (solo si no es administrador o si el equipo tiene coordinador)
         teams.forEach((team: any) => {
           // Los administradores pueden ver las solicitudes pero no responderlas
@@ -477,6 +478,11 @@ export class MyTeamsComponent implements OnInit {
             this.snackBar.open('Grupo creado exitosamente', 'Cerrar', { duration: 3000 });
             this.loading = false;
             this.loadTeams(); // Recargar la lista
+            // Refrescar el usuario por si cambió su rol (si el admin asignó un docente como coordinador)
+            // Delay para asegurar que el backend haya procesado el cambio
+            setTimeout(() => {
+              this.authService.refreshUser();
+            }, 1000);
           },
           error: (error) => {
             console.error('Error creating team:', error);
@@ -503,6 +509,11 @@ export class MyTeamsComponent implements OnInit {
             this.snackBar.open('Grupo actualizado exitosamente', 'Cerrar', { duration: 3000 });
             this.loading = false;
             this.loadTeams(); // Recargar la lista
+            // Refrescar el usuario por si cambió su rol
+            // Delay para asegurar que el backend haya procesado el cambio
+            setTimeout(() => {
+              this.authService.refreshUser();
+            }, 1000);
           },
           error: (error) => {
             console.error('Error updating team:', error);

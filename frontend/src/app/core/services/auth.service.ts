@@ -108,5 +108,31 @@ export class AuthService {
       );
     }
   }
+
+  refreshUser(): void {
+    this.http.get<User>(`${this.apiUrl}/users/me`).subscribe({
+      next: (fullUser) => {
+        const currentUser = this.currentUserSubject.value;
+        const roleChanged = currentUser && currentUser.role !== fullUser.role;
+        
+        this.currentUserSubject.next(fullUser);
+        // Actualizar también el localStorage
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          user.role = fullUser.role;
+          localStorage.setItem('user', JSON.stringify(user));
+        }
+        
+        // Si el rol cambió, log para debugging
+        if (roleChanged) {
+          console.log('AuthService - Role changed from', currentUser?.role, 'to', fullUser.role);
+        }
+      },
+      error: (error) => {
+        console.error('Error refreshing user:', error);
+      }
+    });
+  }
 }
 

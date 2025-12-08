@@ -1,7 +1,7 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { AuthService } from '../services/auth.service';
-import { catchError, throwError } from 'rxjs';
+import { catchError, throwError, tap } from 'rxjs';
 import { Router } from '@angular/router';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
@@ -24,6 +24,21 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         router.navigate(['/login']);
       }
       return throwError(() => error);
+    }),
+    tap((response) => {
+      // Refrescar el usuario después de operaciones que puedan cambiar el rol
+      // Solo para operaciones relacionadas con equipos o usuarios
+      if (authService.getToken() && 
+          !req.url.includes('/auth/login') && 
+          !req.url.includes('/auth/register') &&
+          (req.url.includes('/teams') || req.url.includes('/users'))) {
+        if (req.method === 'PUT' || req.method === 'POST' || req.method === 'DELETE') {
+          // Delay más largo para asegurar que el backend haya procesado el cambio completamente
+          setTimeout(() => {
+            authService.refreshUser();
+          }, 1000);
+        }
+      }
     })
   );
 };

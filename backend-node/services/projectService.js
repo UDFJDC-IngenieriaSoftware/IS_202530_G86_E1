@@ -217,10 +217,10 @@ const updateProject = async (projectId, projectData, userId) => {
   }
 
   // Verificar si ya existe un producto para este proyecto
-  const existingProduct = await pool.query(
+    const existingProduct = await pool.query(
     'SELECT product_id, document, type_product_id FROM Product WHERE investigation_project_id = $1 LIMIT 1',
-    [projectId]
-  );
+      [projectId]
+    );
 
   const hasDocument = document !== undefined && document !== null && typeof document === 'string' && document.trim() !== '';
   console.log('updateProject - hasDocument:', hasDocument);
@@ -250,7 +250,7 @@ const updateProject = async (projectId, projectData, userId) => {
       console.log('updateProject - Creating Product with document:', documentValue);
       await pool.query(
         `INSERT INTO Product (investigation_project_id, type_product_id, title, document, public_date)
-        VALUES ($1, $2, $3, $4, $5)`,
+         VALUES ($1, $2, $3, $4, $5)`,
         [projectId, finalProductTypeId, title, documentValue, today]
       );
     } else {
@@ -277,7 +277,7 @@ const updateProject = async (projectId, projectData, userId) => {
        SET document = $1
        WHERE investigation_project_id = $2 AND product_id = $3`,
       [documentValue, projectId, existingProduct.rows[0].product_id]
-    );
+      );
   }
 
   return await getProjectById(projectId);
