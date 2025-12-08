@@ -71,32 +71,36 @@ import { AuthService } from '../../../core/services/auth.service';
         </mat-form-field>
 
         @if (authService.hasRole('ADMINISTRADOR')) {
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Docente Coordinador*</mat-label>
-            <mat-select formControlName="teacherId" required>
-              @if (loadingCoordinators) {
-                <mat-option disabled>Cargando docentes...</mat-option>
-              } @else {
-                @for (teacher of coordinators; track teacher.teacherId || teacher.coordinatorId) {
-                  <mat-option [value]="teacher.teacherId || teacher.coordinatorId">
-                    {{teacher.name}} ({{teacher.email}})
-                    @if (teacher.coordinatorId) {
-                      <span style="color: #666; font-size: 0.9em;"> - Coordinador actual</span>
-                    }
-                  </mat-option>
-                }
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Docente Coordinador*</mat-label>
+          <mat-select formControlName="teacherId" [required]="teamForm.get('areaId')?.value">
+            @if (!teamForm.get('areaId')?.value) {
+              <mat-option disabled>Primero seleccione un área de investigación</mat-option>
+            } @else if (loadingCoordinators) {
+              <mat-option disabled>Cargando docentes...</mat-option>
+            } @else if (coordinators.length === 0) {
+              <mat-option disabled>No hay docentes disponibles para este proyecto curricular</mat-option>
+            } @else {
+              @for (teacher of coordinators; track teacher.teacherId || teacher.coordinatorId) {
+                <mat-option [value]="teacher.teacherId ? teacher.teacherId : (teacher.coordinatorId ? teacher.coordinatorId : null)">
+                  {{teacher.name}} ({{teacher.email}})
+                  @if (teacher.coordinatorId) {
+                    <span style="color: #666; font-size: 0.9em;"> - Coordinador actual</span>
+                  }
+                </mat-option>
               }
-            </mat-select>
-            @if (teamForm.get('teacherId')?.hasError('required')) {
-              <mat-error>Debe seleccionar un docente coordinador</mat-error>
             }
-          </mat-form-field>
+          </mat-select>
+          @if (teamForm.get('teacherId')?.hasError('required')) {
+            <mat-error>Debe seleccionar un docente coordinador</mat-error>
+          }
+        </mat-form-field>
         }
       </form>
     </mat-dialog-content>
     <mat-dialog-actions>
       <button mat-button (click)="onCancel()">Cancelar</button>
-      <button mat-raised-button color="primary" (click)="onSubmit()" [disabled]="teamForm.invalid || loading">
+      <button mat-raised-button color="primary" (click)="onSubmit()" [disabled]="isFormInvalid() || loading">
         @if (loading) {
           {{data?.team ? 'Guardando...' : 'Creando...'}}
         } @else {
@@ -141,7 +145,7 @@ export class TeamDialogComponent implements OnInit {
       areaId: ['', [Validators.required]],
       description: ['', [Validators.required]],
       coordinatorId: [null, coordinatorIdValidators],
-      teacherId: [null, coordinatorIdValidators]
+      teacherId: [null] // No requerido inicialmente, se validará cuando haya área seleccionada
     });
   }
 
@@ -163,6 +167,12 @@ export class TeamDialogComponent implements OnInit {
             coordinatorId: this.data.team.coordinatorId
           });
           
+          // Si es administrador y hay área, hacer teacherId requerido
+          if (this.authService.hasRole('ADMINISTRADOR') && this.data.team.areaId) {
+            this.teamForm.get('teacherId')?.setValidators([Validators.required]);
+            this.teamForm.get('teacherId')?.updateValueAndValidity();
+          }
+          
           // Cargar docentes para el área seleccionada
           this.loadCoordinatorsForArea(this.data.team.areaId);
         }
@@ -180,6 +190,10 @@ export class TeamDialogComponent implements OnInit {
           this.loadCoordinatorsForArea(areaId);
         } else {
           this.coordinators = [];
+          // Quitar validación requerida si no hay área seleccionada
+          this.teamForm.get('teacherId')?.clearValidators();
+          this.teamForm.get('teacherId')?.updateValueAndValidity();
+          this.teamForm.get('teacherId')?.setValue(null);
         }
       });
     }
@@ -194,8 +208,15 @@ export class TeamDialogComponent implements OnInit {
     const selectedArea = this.investigationAreas.find(a => a.investigationAreaId === areaId);
     if (!selectedArea || !selectedArea.projectAreaId) {
       this.coordinators = [];
+      // Si no hay área válida, quitar validación requerida
+      this.teamForm.get('teacherId')?.clearValidators();
+      this.teamForm.get('teacherId')?.updateValueAndValidity();
       return;
     }
+
+    // Hacer teacherId requerido cuando hay un área válida
+    this.teamForm.get('teacherId')?.setValidators([Validators.required]);
+    this.teamForm.get('teacherId')?.updateValueAndValidity();
 
     this.loadingCoordinators = true;
     const excludeTeamId = this.data?.team?.investigationTeamId;
@@ -217,8 +238,36 @@ export class TeamDialogComponent implements OnInit {
       error: (error: any) => {
         console.error('Error loading teachers:', error);
         this.loadingCoordinators = false;
+        // Si hay error, quitar validación requerida temporalmente
+        this.teamForm.get('teacherId')?.clearValidators();
+        this.teamForm.get('teacherId')?.updateValueAndValidity();
       }
     });
+  }
+
+  isFormInvalid(): boolean {
+    // Validar campos básicos
+    if (!this.teamForm.get('name')?.value || !this.teamForm.get('teamEmail')?.value || 
+        !this.teamForm.get('areaId')?.value || !this.teamForm.get('description')?.value) {
+      return true;
+    }
+
+    // Validar email
+    if (this.teamForm.get('teamEmail')?.hasError('email')) {
+      return true;
+    }
+
+    // Si es administrador, validar que haya docente seleccionado cuando hay área
+    if (this.authService.hasRole('ADMINISTRADOR')) {
+      const areaId = this.teamForm.get('areaId')?.value;
+      const teacherId = this.teamForm.get('teacherId')?.value;
+      
+      if (areaId && !teacherId) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   onCancel(): void {
@@ -226,29 +275,51 @@ export class TeamDialogComponent implements OnInit {
   }
 
   onSubmit(): void {
-    if (this.teamForm.valid) {
-      const formValue = this.teamForm.value;
-      // Asegurar que areaId sea un número
-      const teamData: any = {
-        name: formValue.name,
-        teamEmail: formValue.teamEmail,
-        description: formValue.description,
-        areaId: parseInt(formValue.areaId, 10)
-      };
-      
-      // Si es administrador, incluir el docente seleccionado (obligatorio)
-      // El backend se encargará de crear el coordinador si no existe
-      if (this.authService.hasRole('ADMINISTRADOR')) {
-        if (!formValue.teacherId) {
-          // Esto no debería pasar porque el campo es requerido, pero por seguridad
-          console.error('El docente coordinador es obligatorio para administradores');
-          return;
-        }
-        teamData.teacherId = parseInt(formValue.teacherId, 10);
-      }
-      
-      this.dialogRef.close(teamData);
+    // Validar campos básicos
+    if (!this.teamForm.get('name')?.value || !this.teamForm.get('teamEmail')?.value || 
+        !this.teamForm.get('areaId')?.value || !this.teamForm.get('description')?.value) {
+      // Marcar todos los campos como touched para mostrar errores
+      Object.keys(this.teamForm.controls).forEach(key => {
+        this.teamForm.get(key)?.markAsTouched();
+      });
+      return;
     }
+
+    // Validar email
+    if (this.teamForm.get('teamEmail')?.hasError('email')) {
+      this.teamForm.get('teamEmail')?.markAsTouched();
+      return;
+    }
+
+    // Si es administrador, validar que haya docente seleccionado
+    if (this.authService.hasRole('ADMINISTRADOR')) {
+      const areaId = this.teamForm.get('areaId')?.value;
+      const teacherId = this.teamForm.get('teacherId')?.value;
+      
+      if (areaId && !teacherId) {
+        // Si hay área pero no docente, marcar como error
+        this.teamForm.get('teacherId')?.setErrors({ required: true });
+        this.teamForm.get('teacherId')?.markAsTouched();
+        return;
+      }
+    }
+
+    const formValue = this.teamForm.value;
+    // Asegurar que areaId sea un número
+    const teamData: any = {
+      name: formValue.name.trim(),
+      teamEmail: formValue.teamEmail.trim(),
+      description: formValue.description.trim(),
+      areaId: parseInt(formValue.areaId, 10)
+    };
+    
+    // Si es administrador, incluir el docente seleccionado (obligatorio)
+    // El backend se encargará de crear el coordinador si no existe
+    if (this.authService.hasRole('ADMINISTRADOR') && formValue.teacherId) {
+      teamData.teacherId = parseInt(formValue.teacherId, 10);
+    }
+    
+    this.dialogRef.close(teamData);
   }
 }
 
