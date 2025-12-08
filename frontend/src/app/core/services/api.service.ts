@@ -154,5 +154,26 @@ export class ApiService {
   deleteUser(id: number): Observable<void> {
     return this.http.delete<void>(`${API_URL}/users/${id}`);
   }
+
+  // Product Types (Admin)
+  getProductTypesAdmin(): Observable<any[]> {
+    return this.http.get<any[]>(`${API_URL}/product-types`);
+  }
+
+  getProductTypeById(id: number): Observable<any> {
+    return this.http.get<any>(`${API_URL}/product-types/${id}`);
+  }
+
+  createProductType(productType: any): Observable<any> {
+    return this.http.post<any>(`${API_URL}/product-types`, productType);
+  }
+
+  updateProductType(id: number, productType: any): Observable<any> {
+    return this.http.put<any>(`${API_URL}/product-types/${id}`, productType);
+  }
+
+  deleteProductType(id: number): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/product-types/${id}`);
+  }
 }
 

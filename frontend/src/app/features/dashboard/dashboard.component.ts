@@ -76,6 +76,16 @@ import { ApiService } from '../../core/services/api.service';
               <p>Administra los proyectos de investigación</p>
             </mat-card-content>
           </mat-card>
+
+          @if (user?.role === 'ADMINISTRADOR') {
+            <mat-card class="dashboard-card" routerLink="/dashboard/product-types">
+              <mat-card-content>
+                <mat-icon>category</mat-icon>
+                <h3>Tipos de Proyecto</h3>
+                <p>Gestiona los tipos de proyectos de investigación</p>
+              </mat-card-content>
+            </mat-card>
+          }
         }
       </div>
     </div>
