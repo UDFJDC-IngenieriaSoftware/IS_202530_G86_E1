@@ -173,14 +173,162 @@ const updateUser = async (userId, userData) => {
   }
 };
 
-const deleteUser = async (userId) => {
-  const result = await pool.query(
-    'DELETE FROM app_user WHERE user_id = $1 RETURNING user_id',
-    [userId]
-  );
+const hasUserRelations = async (userId) => {
+  const client = await pool.connect();
+  try {
+    // Verificar si es estudiante y tiene aplicaciones
+    const studentCheck = await client.query(
+      'SELECT student_id FROM Student WHERE user_id = $1',
+      [userId]
+    );
+    
+    if (studentCheck.rows.length > 0) {
+      const studentId = studentCheck.rows[0].student_id;
+      
+      // Verificar aplicaciones
+      const applicationsCheck = await client.query(
+        'SELECT COUNT(*) as count FROM Application WHERE user_id = $1',
+        [userId]
+      );
+      if (parseInt(applicationsCheck.rows[0].count) > 0) {
+        return { hasRelations: true, reason: 'El usuario tiene solicitudes de vinculación pendientes' };
+      }
+      
+      // Verificar productos asociados
+      const productsCheck = await client.query(
+        'SELECT COUNT(*) as count FROM Product_student WHERE student_id = $1',
+        [studentId]
+      );
+      if (parseInt(productsCheck.rows[0].count) > 0) {
+        return { hasRelations: true, reason: 'El usuario tiene productos de investigación asociados' };
+      }
+      
+      // Verificar si está en un equipo
+      const teamCheck = await client.query(
+        'SELECT team_id FROM Student WHERE user_id = $1 AND team_id IS NOT NULL',
+        [userId]
+      );
+      if (teamCheck.rows.length > 0) {
+        return { hasRelations: true, reason: 'El usuario pertenece a un grupo de investigación' };
+      }
+    }
+    
+    // Verificar si es docente/coordinador
+    const teacherCheck = await client.query(
+      'SELECT teacher_id FROM Teacher WHERE user_id = $1',
+      [userId]
+    );
+    
+    if (teacherCheck.rows.length > 0) {
+      const teacherId = teacherCheck.rows[0].teacher_id;
+      
+      // Verificar si es coordinador y tiene equipos asignados
+      const coordinatorCheck = await client.query(
+        `SELECT c.coordinator_id 
+         FROM Cordinator c 
+         INNER JOIN Investigation_team it ON it.cordinator_id = c.coordinator_id 
+         WHERE c.teacher_id = $1`,
+        [teacherId]
+      );
+      if (coordinatorCheck.rows.length > 0) {
+        return { hasRelations: true, reason: 'El usuario coordina uno o más grupos de investigación' };
+      }
+      
+      // Verificar productos asociados
+      const productsCheck = await client.query(
+        'SELECT COUNT(*) as count FROM Product_teacher WHERE teacher_id = $1',
+        [teacherId]
+      );
+      if (parseInt(productsCheck.rows[0].count) > 0) {
+        return { hasRelations: true, reason: 'El usuario tiene productos de investigación asociados' };
+      }
+      
+      // Verificar si está en un equipo
+      const teamCheck = await client.query(
+        'SELECT team_id FROM Teacher WHERE user_id = $1 AND team_id IS NOT NULL',
+        [userId]
+      );
+      if (teamCheck.rows.length > 0) {
+        return { hasRelations: true, reason: 'El usuario pertenece a un grupo de investigación' };
+      }
+    }
+    
+    // Verificar aplicaciones (por si acaso)
+    const applicationsCheck = await client.query(
+      'SELECT COUNT(*) as count FROM Application WHERE user_id = $1',
+      [userId]
+    );
+    if (parseInt(applicationsCheck.rows[0].count) > 0) {
+      return { hasRelations: true, reason: 'El usuario tiene solicitudes de vinculación pendientes' };
+    }
+    
+    return { hasRelations: false };
+  } finally {
+    client.release();
+  }
+};
 
-  if (result.rows.length === 0) {
-    throw new Error('Usuario no encontrado');
+const deleteUser = async (userId) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    // Verificar si el usuario existe
+    const userCheck = await client.query(
+      'SELECT user_id FROM app_user WHERE user_id = $1',
+      [userId]
+    );
+    
+    if (userCheck.rows.length === 0) {
+      throw new Error('Usuario no encontrado');
+    }
+    
+    // Verificar relaciones
+    const relationsCheck = await hasUserRelations(userId);
+    if (relationsCheck.hasRelations) {
+      throw new Error(relationsCheck.reason);
+    }
+    
+    // Si es estudiante, eliminar registro de Student
+    const studentCheck = await client.query(
+      'SELECT student_id FROM Student WHERE user_id = $1',
+      [userId]
+    );
+    if (studentCheck.rows.length > 0) {
+      await client.query('DELETE FROM Student WHERE user_id = $1', [userId]);
+    }
+    
+    // Si es docente, verificar si es coordinador primero
+    const teacherCheck = await client.query(
+      'SELECT teacher_id FROM Teacher WHERE user_id = $1',
+      [userId]
+    );
+    if (teacherCheck.rows.length > 0) {
+      const teacherId = teacherCheck.rows[0].teacher_id;
+      
+      // Verificar si es coordinador
+      const coordinatorCheck = await client.query(
+        'SELECT coordinator_id FROM Cordinator WHERE teacher_id = $1',
+        [teacherId]
+      );
+      if (coordinatorCheck.rows.length > 0) {
+        // Eliminar coordinador (esto debería estar vacío por la validación anterior)
+        await client.query('DELETE FROM Cordinator WHERE teacher_id = $1', [teacherId]);
+      }
+      
+      // Eliminar registro de Teacher
+      await client.query('DELETE FROM Teacher WHERE user_id = $1', [userId]);
+    }
+    
+    // Finalmente, eliminar el usuario
+    await client.query('DELETE FROM app_user WHERE user_id = $1', [userId]);
+    
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
   }
 };
 

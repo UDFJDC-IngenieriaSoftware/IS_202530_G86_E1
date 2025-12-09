@@ -13,6 +13,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { ApiService } from '../../../core/services/api.service';
 import { UserDialogComponent } from '../../../shared/components/user-dialog/user-dialog.component';
+import { ConfirmDeleteDialogComponent } from '../../../shared/components/confirm-delete-dialog/confirm-delete-dialog.component';
 
 @Component({
   selector: 'app-users',
@@ -344,14 +345,32 @@ export class UsersComponent implements OnInit {
   }
 
   deleteUser(user: any): void {
-    if (confirm(`¿Estás seguro de eliminar al usuario ${user.name}?`)) {
-      this.apiService.deleteUser(user.userId).subscribe({
-        next: () => {
-          this.loadUsers();
-        },
-        error: (error) => console.error('Error deleting user:', error)
-      });
-    }
+    const dialogRef = this.dialog.open(ConfirmDeleteDialogComponent, {
+      width: '400px',
+      data: {
+        title: 'Eliminar Usuario',
+        message: `¿Estás seguro de eliminar al usuario ${user.name} (${user.email})?`,
+        confirmText: 'Eliminar',
+        cancelText: 'Cancelar'
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.apiService.deleteUser(user.userId).subscribe({
+          next: () => {
+            this.snackBar.open('Usuario eliminado exitosamente', 'Cerrar', { duration: 3000 });
+            this.loadUsers();
+            this.applyFilters();
+          },
+          error: (error) => {
+            console.error('Error deleting user:', error);
+            const errorMessage = error.error?.message || 'No se puede eliminar el usuario porque tiene relaciones con otros datos del sistema';
+            this.snackBar.open(errorMessage, 'Cerrar', { duration: 5000 });
+          }
+        });
+      }
+    });
   }
 }
 

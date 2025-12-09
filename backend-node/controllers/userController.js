@@ -49,7 +49,16 @@ const deleteUser = async (req, res) => {
     res.status(204).send();
   } catch (error) {
     console.error('Error deleting user:', error);
-    res.status(404).json({ message: error.message || 'Error al eliminar usuario' });
+    // Si el error es por relaciones, devolver 400 (Bad Request)
+    // Si el usuario no existe, devolver 404 (Not Found)
+    const statusCode = error.message.includes('relaciones') || 
+                       error.message.includes('solicitudes') || 
+                       error.message.includes('productos') || 
+                       error.message.includes('grupo') || 
+                       error.message.includes('coordina')
+                       ? 400 
+                       : 404;
+    res.status(statusCode).json({ message: error.message || 'Error al eliminar usuario' });
   }
 };
 
